@@ -27,7 +27,7 @@ import { TRANSACTION_STATUSES, PAYMENT_METHODS } from "@/db/schema";
 import StatCard from "@/components/admin/StatCard";
 import DemoBadge from "@/components/admin/DemoBadge";
 import ErrorBanner from "@/components/admin/ErrorBanner";
-import { CHART_COLORS, MonthlyFlowChart } from "@/components/admin/OverviewCharts";
+import { MonthlyFlowChart } from "@/components/admin/OverviewCharts";
 import CategoryBarChart from "@/components/admin/CategoryBarChart";
 import { createTransactionAction } from "@/app/actions/admin-finance";
 
@@ -159,7 +159,6 @@ export default async function AdminFinancePage({
           {expensesByCategory.length > 0 ? (
             <CategoryBarChart
               data={expensesByCategory.map((c) => ({ label: categoryLabel(c.category), totalCents: c.totalCents }))}
-              color={CHART_COLORS.light}
             />
           ) : (
             <p className="py-10 text-center text-sm text-ink/50">Nenhuma despesa paga neste período.</p>
@@ -172,7 +171,6 @@ export default async function AdminFinancePage({
           <h2 className="mb-2 text-sm font-semibold text-ink">Receita por procedimento (mês)</h2>
           <CategoryBarChart
             data={revenueByService.map((s) => ({ label: s.name, totalCents: s.totalCents }))}
-            color={CHART_COLORS.income}
           />
         </div>
       )}

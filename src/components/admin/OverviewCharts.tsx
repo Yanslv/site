@@ -15,12 +15,30 @@ import { formatCentsToBRL } from "@/lib/money";
 
 export const CHART_COLORS = {
   income: "#14532D",
-  expense: "#86EFAC",
-  light: "#4ADE80",
-  grid: "#D1FAE5",
+  expense: "#DC2626",
+  grid: "#EEE7E4",
 };
 
-const GREEN_SCALE = ["#14532D", "#166534", "#15803D", "#16A34A", "#22C55E", "#4ADE80", "#86EFAC"];
+const PASTEL_BARS = [
+  "#F7C6D0",
+  "#C9E4CA",
+  "#B8D4E8",
+  "#F6E2B3",
+  "#D7C6E6",
+  "#F5D0B5",
+  "#B8E0D6",
+  "#F3C6DE",
+  "#D4E5B8",
+  "#C5D5F0",
+];
+
+export function pastelForKey(key: string): string {
+  let hash = 0;
+  for (let i = 0; i < key.length; i += 1) {
+    hash = (hash * 33 + key.charCodeAt(i)) >>> 0;
+  }
+  return PASTEL_BARS[hash % PASTEL_BARS.length];
+}
 
 export type MonthlyChartPoint = { monthKey: string; incomeCents: number; expenseCents: number };
 export type ServiceRevenuePoint = { name: string; totalCents: number };
@@ -42,15 +60,15 @@ export function MonthlyFlowChart({ data }: { data: MonthlyChartPoint[] }) {
   }));
 
   return (
-    <ResponsiveContainer width="100%" height={280}>
-      <BarChart data={chartData} margin={{ top: 8, right: 8, left: 8, bottom: 8 }}>
+    <ResponsiveContainer width="100%" height={Math.max(280, chartData.length * 48)}>
+      <BarChart data={chartData} layout="vertical" margin={{ top: 8, right: 16, left: 8, bottom: 8 }}>
         <CartesianGrid strokeDasharray="3 3" stroke={CHART_COLORS.grid} />
-        <XAxis dataKey="month" tick={{ fontSize: 12 }} />
-        <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => `R$${v}`} width={70} />
+        <XAxis type="number" tick={{ fontSize: 12 }} tickFormatter={(v) => `R$${v}`} />
+        <YAxis type="category" dataKey="month" tick={{ fontSize: 12 }} width={64} />
         <Tooltip formatter={(value) => formatCentsToBRL(Number(value) * 100)} />
         <Legend />
-        <Bar dataKey="Entradas" fill={CHART_COLORS.income} radius={[4, 4, 0, 0]} />
-        <Bar dataKey="Saídas" fill={CHART_COLORS.expense} radius={[4, 4, 0, 0]} />
+        <Bar dataKey="Entradas" fill={CHART_COLORS.income} radius={[0, 4, 4, 0]} />
+        <Bar dataKey="Saídas" fill={CHART_COLORS.expense} radius={[0, 4, 4, 0]} />
       </BarChart>
     </ResponsiveContainer>
   );
@@ -67,8 +85,8 @@ export function RevenueByServiceChart({ data }: { data: ServiceRevenuePoint[] })
         <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={160} />
         <Tooltip formatter={(value) => formatCentsToBRL(Number(value) * 100)} />
         <Bar dataKey="Receita" radius={[0, 4, 4, 0]}>
-          {chartData.map((row, index) => (
-            <Cell key={row.name} fill={GREEN_SCALE[index % GREEN_SCALE.length]} />
+          {chartData.map((row) => (
+            <Cell key={row.name} fill={pastelForKey(row.name)} />
           ))}
         </Bar>
       </BarChart>
