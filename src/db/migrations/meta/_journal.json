@@ -1,0 +1,20 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1789749859055,
+      "tag": "0000_wandering_kylun",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1789750102946,
+      "tag": "0001_open_toxin",
+      "breakpoints": true
+    }
+  ]
+}
