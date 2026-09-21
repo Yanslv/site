@@ -316,7 +316,7 @@ export default function BookingWizard({
           )}
 
           <p className="text-xs text-ink/50">
-            Preço e disponibilidade são demonstrativos. A Ioná confirma seu horário pelo WhatsApp.
+            A Ioná confirma seu horário pelo WhatsApp.
           </p>
 
           <button

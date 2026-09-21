@@ -7,7 +7,6 @@ import { formatCentsToBRL } from "@/lib/money";
 import { formatZonedDateTime } from "@/lib/timezone";
 import { APPOINTMENT_STATUSES, type AppointmentStatus } from "@/db/schema";
 import { AppointmentStatusBadge, PaymentStatusBadge } from "@/components/admin/StatusBadge";
-import DemoBadge from "@/components/admin/DemoBadge";
 
 export const metadata: Metadata = { title: "Agendamentos | Painel Bendita Micro" };
 
@@ -141,11 +140,6 @@ export default async function AdminAppointmentsPage({
                   <Link href={`/admin/agendamentos/${appointment.id}`} className="font-medium text-wine hover:underline">
                     {formatZonedDateTime(appointment.startAtUtc)}
                   </Link>
-                  {appointment.isDemo && (
-                    <span className="ml-2 align-middle">
-                      <DemoBadge />
-                    </span>
-                  )}
                 </td>
                 <td className="px-4 py-3">
                   <p className="text-ink">{customer.name}</p>

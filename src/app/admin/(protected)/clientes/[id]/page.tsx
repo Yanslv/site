@@ -8,7 +8,6 @@ import { formatCentsToBRL } from "@/lib/money";
 import { formatZonedDateTime, formatZonedDate } from "@/lib/timezone";
 import { buildCustomerWhatsappLink } from "@/lib/whatsapp";
 import { AppointmentStatusBadge, PaymentStatusBadge } from "@/components/admin/StatusBadge";
-import DemoBadge from "@/components/admin/DemoBadge";
 
 export const metadata: Metadata = { title: "Cliente | Painel Bendita Micro" };
 
@@ -24,7 +23,7 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
       <div>
         <p className="text-xs font-medium uppercase tracking-wide text-ink/50">Cliente</p>
         <h1 className="flex items-center gap-2 text-2xl font-semibold text-ink">
-          {customer.name} {customer.isDemo && <DemoBadge />}
+          {customer.name}
         </h1>
         <p className="text-sm text-ink/60">
           Cliente desde {formatZonedDate(customer.createdAt)}

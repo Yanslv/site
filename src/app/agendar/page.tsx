@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { listActiveServices } from "@/server/services";
-import { demoNotice } from "@/config/site";
 import BookingWizard from "./BookingWizard";
 
 export const metadata: Metadata = {
@@ -19,9 +18,6 @@ export default async function AgendarPage({
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="bg-ink text-background">
-        <p className="mx-auto max-w-3xl px-4 py-2 text-center text-xs sm:text-sm">{demoNotice}</p>
-      </div>
       <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6 sm:py-12">
         <Link href="/" className="text-sm text-wine hover:underline">
           ← Voltar para o site

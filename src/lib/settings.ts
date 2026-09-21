@@ -18,10 +18,7 @@ export async function setSetting(key: string, value: string): Promise<void> {
 }
 
 /**
- * Se true, agendamentos públicos entrariam como "confirmed" automaticamente.
- * No ambiente demo o valor padrão é sempre `false` (a proprietária confirma
- * manualmente), mesmo que a variável de ambiente AUTO_CONFIRM_APPOINTMENTS
- * não esteja definida.
+ * Se true, agendamentos públicos entram como "confirmed" automaticamente.
  */
 export async function getAutoConfirmAppointments(): Promise<boolean> {
   const stored = await getSetting(AUTO_CONFIRM_KEY);

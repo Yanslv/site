@@ -4,7 +4,6 @@ import { Plus, Tag } from "lucide-react";
 import { listAllServices } from "@/server/services";
 import { toggleServiceActiveAction } from "@/app/actions/admin-services";
 import { formatCentsToBRL } from "@/lib/money";
-import DemoBadge from "@/components/admin/DemoBadge";
 import ErrorBanner from "@/components/admin/ErrorBanner";
 
 export const metadata: Metadata = { title: "Serviços | Painel Bendita Micro" };
@@ -53,7 +52,6 @@ export default async function AdminServicesPage({
                       aria-hidden="true"
                     />
                     <span className="font-medium text-ink">{service.name}</span>
-                    {service.isDemo && <DemoBadge />}
                   </div>
                 </td>
                 <td className="px-4 py-3 text-ink/70">{service.durationMinutes} min</td>

@@ -25,7 +25,6 @@ import {
 } from "@/lib/labels";
 import { TRANSACTION_STATUSES, PAYMENT_METHODS } from "@/db/schema";
 import StatCard from "@/components/admin/StatCard";
-import DemoBadge from "@/components/admin/DemoBadge";
 import ErrorBanner from "@/components/admin/ErrorBanner";
 import { MonthlyFlowChart } from "@/components/admin/OverviewCharts";
 import CategoryBarChart from "@/components/admin/CategoryBarChart";
@@ -316,7 +315,7 @@ export default async function AdminFinancePage({
                   </td>
                   <td className="px-4 py-3 text-ink/70">{categoryLabel(t.category)}</td>
                   <td className="px-4 py-3 text-ink/70">
-                    {t.description || "—"} {t.isDemo && <DemoBadge />}
+                    {t.description || "—"}
                   </td>
                   <td className="px-4 py-3 text-ink/70">{PAYMENT_METHOD_LABELS[t.paymentMethod]}</td>
                   <td className="px-4 py-3 text-ink/70">{TRANSACTION_STATUS_LABELS[t.status]}</td>

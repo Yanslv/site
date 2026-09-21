@@ -24,11 +24,6 @@ export default function ProcedureCard({ service }: { service: Service }) {
         ) : (
           <div className="h-full w-full" style={{ backgroundColor: service.color }} aria-hidden="true" />
         )}
-        {service.isDemo && (
-          <span className="absolute left-3 top-3 rounded-full bg-ink/85 px-3 py-1 text-xs font-medium text-background">
-            Preço demonstrativo
-          </span>
-        )}
       </div>
       <div className="flex flex-1 flex-col gap-3 p-5">
         <h3 className="text-lg font-semibold text-ink">{service.name}</h3>

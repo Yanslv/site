@@ -3,7 +3,6 @@ import Link from "next/link";
 import { Search } from "lucide-react";
 import { listCustomers } from "@/server/customers";
 import { formatZonedDate } from "@/lib/timezone";
-import DemoBadge from "@/components/admin/DemoBadge";
 
 export const metadata: Metadata = { title: "Clientes | Painel Bendita Micro" };
 
@@ -51,11 +50,6 @@ export default async function AdminCustomersPage({
                   <Link href={`/admin/clientes/${customer.id}`} className="font-medium text-wine hover:underline">
                     {customer.name}
                   </Link>
-                  {customer.isDemo && (
-                    <span className="ml-2 align-middle">
-                      <DemoBadge />
-                    </span>
-                  )}
                 </td>
                 <td className="px-4 py-3 text-ink/70">{customer.whatsapp}</td>
                 <td className="px-4 py-3 text-ink/70">{formatZonedDate(customer.createdAt)}</td>

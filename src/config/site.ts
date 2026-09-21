@@ -176,12 +176,6 @@ export const navLinks = [
 ];
 
 // ---------------------------------------------------------------------------
-// Aviso de demonstração (obrigatório enquanto o conteúdo não for aprovado)
-// ---------------------------------------------------------------------------
-export const demoNotice =
-  "Demonstração visual — imagens e conteúdos dependem de validação e autorização antes da publicação.";
-
-// ---------------------------------------------------------------------------
 // Hero
 // ---------------------------------------------------------------------------
 export const hero = {
@@ -370,5 +364,4 @@ export const seo = {
 export const footer = {
   brandLine: `${brand.name} — ${brand.professional}`,
   city: brand.city,
-  demoNotice,
 };

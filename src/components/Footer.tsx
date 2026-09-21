@@ -30,7 +30,6 @@ export default function Footer() {
           </div>
         </div>
         <p className="text-background/70">{footer.city}</p>
-        <p className="text-xs text-background/60">{footer.demoNotice}</p>
         <p className="text-xs text-background/50">
           © {year} {footer.brandLine}. Todos os direitos reservados.
         </p>

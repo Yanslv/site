@@ -1,4 +1,3 @@
-import DemoNotice from "@/components/DemoNotice";
 import Header from "@/components/Header";
 import Hero from "@/components/Hero";
 import AuthoritySection from "@/components/AuthoritySection";
@@ -17,7 +16,6 @@ import FloatingWhatsapp from "@/components/FloatingWhatsapp";
 export default function Home() {
   return (
     <>
-      <DemoNotice />
       <Header />
       <main>
         <Hero />

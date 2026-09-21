@@ -13,10 +13,6 @@ export default async function ProcedureGrid() {
           title="Serviços da Bendita Micro"
           description="Conheça as especialidades da Ioná, veja preço e duração e tire suas dúvidas antes de escolher o procedimento ideal para você."
         />
-        <p className="mt-3 text-xs font-medium uppercase tracking-wide text-rose">
-          Preços e horários são demonstrativos e serão confirmados pela profissional antes da
-          publicação.
-        </p>
         <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {services.map((service) => (
             <ProcedureCard key={service.id} service={service} />

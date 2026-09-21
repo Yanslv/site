@@ -4,7 +4,7 @@ import { CheckCircle2, Clock, MessageCircle } from "lucide-react";
 import { getAppointmentByProtocol } from "@/server/appointments";
 import { formatCentsToBRL } from "@/lib/money";
 import { formatZonedDate, formatZonedTime } from "@/lib/timezone";
-import { getWhatsappUrlWithMessage, demoNotice } from "@/config/site";
+import { getWhatsappUrlWithMessage } from "@/config/site";
 
 export const metadata: Metadata = {
   title: "Agendamento solicitado | Bendita Micro",
@@ -39,9 +39,6 @@ export default async function AgendarSucessoPage({
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="bg-ink text-background">
-        <p className="mx-auto max-w-lg px-4 py-2 text-center text-xs sm:text-sm">{demoNotice}</p>
-      </div>
       <div className="mx-auto max-w-lg px-4 py-12 text-center sm:py-16">
         <CheckCircle2 className="mx-auto h-12 w-12 text-wine" aria-hidden="true" />
         <h1 className="mt-4 font-serif-display text-3xl font-semibold text-ink">

@@ -46,8 +46,7 @@ export default async function AdminSettingsPage({
       <section className="rounded-2xl border border-surface bg-background p-6 shadow-sm">
         <h2 className="text-lg font-semibold text-ink">Horário de funcionamento</h2>
         <p className="mt-1 text-sm text-ink/60">
-          Horários demo (segunda a sexta 09:00–18:00, sábado 09:00–13:00, domingo fechado) — ajuste
-          conforme a rotina real da Ioná.
+          Defina o horário de cada dia da semana.
         </p>
         <form action={updateBusinessHoursAction} className="mt-4 flex flex-col gap-3">
           {WEEKDAY_LABELS.map((label, weekday) => {
@@ -99,7 +98,7 @@ export default async function AdminSettingsPage({
       <section className="rounded-2xl border border-surface bg-background p-6 shadow-sm">
         <h2 className="text-lg font-semibold text-ink">Confirmação automática</h2>
         <p className="mt-1 text-sm text-ink/60">
-          No ambiente demo, mantenha desligado: a Ioná confirma manualmente cada solicitação.
+          Quando desligado, a Ioná confirma manualmente cada solicitação.
         </p>
         <form action={updateAutoConfirmAction} className="mt-4 flex items-center gap-3">
           <label className="flex items-center gap-2 text-sm text-ink/80">

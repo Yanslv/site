@@ -10,7 +10,6 @@ import { formatZonedDateTime } from "@/lib/timezone";
 import { STATUS_TRANSITIONS } from "@/lib/validation/appointment";
 import { buildCustomerWhatsappLink } from "@/lib/whatsapp";
 import { AppointmentStatusBadge, PaymentStatusBadge } from "@/components/admin/StatusBadge";
-import DemoBadge from "@/components/admin/DemoBadge";
 import ErrorBanner from "@/components/admin/ErrorBanner";
 import { PAYMENT_METHODS } from "@/db/schema";
 
@@ -58,11 +57,6 @@ export default async function AppointmentDetailPage({
         <div>
           <p className="text-xs font-medium uppercase tracking-wide text-ink/50">
             Protocolo {appointment.protocol}
-            {appointment.isDemo && (
-              <span className="ml-2 align-middle">
-                <DemoBadge />
-              </span>
-            )}
           </p>
           <h1 className="text-2xl font-semibold text-ink">{appointment.serviceNameSnapshot}</h1>
           <p className="text-sm text-ink/60">{formatZonedDateTime(appointment.startAtUtc)}</p>
