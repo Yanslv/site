@@ -10,7 +10,8 @@ import { users } from "@/db/schema";
 import { hashPassword } from "@/lib/password";
 import { createService } from "@/server/services";
 import { upsertBusinessHourRule } from "@/server/schedule";
-import { createPublicBooking, updateAppointmentStatus, BookingError } from "@/server/appointments";
+import { createPublicBooking, getReturnAppointment, updateAppointmentStatus, BookingError } from "@/server/appointments";
+import { plannedReturnInstant } from "@/lib/return-visit";
 import { registerAppointmentPayment } from "@/server/finance";
 import { getOverviewMetrics } from "@/server/dashboard";
 import { zonedTimeToUtc, BUSINESS_TIMEZONE } from "@/lib/timezone";
@@ -57,6 +58,7 @@ describe("fluxo completo: serviço → disponibilidade → agendamento → concl
       durationMinutes: 60,
       priceCents: 65000,
       active: true,
+      hasReturn: false,
       imagePath: "",
       color: "#7E3948",
       sortOrder: 1,
@@ -144,5 +146,54 @@ describe("fluxo completo: serviço → disponibilidade → agendamento → concl
     const periodEnd = new Date(nextMonthStart.getTime() - 1000);
     const metrics = await getOverviewMetrics(periodStart, periodEnd);
     expect(metrics.grossRevenueCents).toBeGreaterThanOrEqual(65000);
+  });
+
+  it("reserva o retorno no mesmo horário, 30 dias depois do procedimento", async () => {
+    const service = await createService({
+      name: "Labial com retorno (teste)",
+      slug: `labial-retorno-${Date.now()}`,
+      description: "",
+      category: "labios",
+      durationMinutes: 60,
+      priceCents: 40000,
+      active: true,
+      hasReturn: true,
+      returnAmount: 30,
+      returnUnit: "days",
+      imagePath: "",
+      color: "#7E3948",
+      sortOrder: 2,
+    });
+
+    const { year, month, day } = tomorrowDateParts();
+    const dateKeyValue = `${year}-${month.toString().padStart(2, "0")}-${day.toString().padStart(2, "0")}`;
+    const startAtUtc = zonedTimeToUtc({ year, month, day, hour: 14, minute: 0 }, BUSINESS_TIMEZONE);
+
+    const { appointment } = await createPublicBooking({
+      serviceId: service.id,
+      dateKey: dateKeyValue,
+      startAtIso: startAtUtc.toISOString(),
+      customerName: "Cliente Retorno",
+      customerWhatsapp: "+55 65 90000-9999",
+      customerEmail: null,
+      publicNote: null,
+    });
+
+    const returnVisit = await getReturnAppointment(appointment.id);
+    expect(returnVisit).not.toBeNull();
+    expect(returnVisit?.kind).toBe("return");
+    expect(returnVisit?.servicePriceSnapshot).toBe(0);
+    expect(returnVisit?.paymentStatus).toBe("paid");
+    expect(returnVisit?.returnAdjusted).toBe(false);
+    expect(returnVisit?.startAtUtc.getTime()).toBe(plannedReturnInstant(startAtUtc, 30, "days").getTime());
+
+    const confirmed = await updateAppointmentStatus({
+      id: appointment.id,
+      toStatus: "confirmed",
+      userId: testUserId,
+    });
+    expect(confirmed.status).toBe("confirmed");
+    const confirmedReturn = await getReturnAppointment(appointment.id);
+    expect(confirmedReturn?.status).toBe("confirmed");
   });
 });

@@ -22,7 +22,7 @@ export type TransactionFilters = {
 export async function listTransactions(filters: TransactionFilters = {}): Promise<
   (Transaction & { serviceName: string | null })[]
 > {
-  const conditions = [];
+  const conditions = [eq(transactions.isDemo, false)];
   if (filters.dateFrom) conditions.push(gte(transactions.financialDate, filters.dateFrom));
   if (filters.dateTo) conditions.push(lte(transactions.financialDate, filters.dateTo));
   if (filters.type) conditions.push(eq(transactions.type, filters.type));
@@ -166,5 +166,9 @@ export async function registerAppointmentPayment(input: {
 export { getPaidCentsForAppointment };
 
 export async function listServicesForFinance() {
-  return db.select({ id: services.id, name: services.name }).from(services).orderBy(asc(services.sortOrder));
+  return db
+    .select({ id: services.id, name: services.name })
+    .from(services)
+    .where(eq(services.isDemo, false))
+    .orderBy(asc(services.sortOrder));
 }

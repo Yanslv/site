@@ -28,6 +28,7 @@ import StatCard from "@/components/admin/StatCard";
 import ErrorBanner from "@/components/admin/ErrorBanner";
 import { MonthlyFlowChart } from "@/components/admin/OverviewCharts";
 import CategoryBarChart from "@/components/admin/CategoryBarChart";
+import { MoneyField } from "@/components/admin/MaskedFields";
 import { createTransactionAction } from "@/app/actions/admin-finance";
 
 export const metadata: Metadata = { title: "Financeiro | Painel Bendita Micro" };
@@ -207,19 +208,7 @@ export default async function AdminFinancePage({
               </optgroup>
             </select>
           </div>
-          <div className="flex flex-col gap-1">
-            <label htmlFor="amountCents" className="text-xs font-medium text-ink/60">
-              Valor (centavos)
-            </label>
-            <input
-              id="amountCents"
-              name="amountCents"
-              type="number"
-              min={1}
-              required
-              className="rounded-lg border border-surface px-2 py-1.5 text-sm"
-            />
-          </div>
+          <MoneyField id="amountCents" name="amountCents" label="Valor" required />
           <div className="flex flex-col gap-1">
             <label htmlFor="financialDate" className="text-xs font-medium text-ink/60">
               Data

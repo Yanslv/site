@@ -29,7 +29,39 @@ h4 {
   font-family: var(--font-playfair), ui-serif, Georgia, serif;
 }
 
+@keyframes certificate-sheen {
+  0% {
+    transform: translateX(-140%) skewX(-16deg);
+  }
+  42%,
+  100% {
+    transform: translateX(320%) skewX(-16deg);
+  }
+}
+
+.certificate-sheen {
+  animation: certificate-sheen 6.5s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .certificate-window {
+    overflow: visible;
+  }
+
+  .certificate-track {
+    flex-wrap: wrap;
+    width: 100% !important;
+    transform: none !important;
+  }
+
+  .certificate-track > li {
+    width: 33.333% !important;
+  }
+
+  .certificate-track > li[data-clone="true"] {
+    display: none;
+  }
+
   html {
     scroll-behavior: auto;
   }

@@ -1,17 +1,29 @@
 import { z } from "zod";
 import { APPOINTMENT_STATUSES, APPOINTMENT_ORIGINS } from "@/db/schema";
+import { whatsappField } from "@/lib/validation/booking";
+
+const formText = (max: number) =>
+  z.preprocess((value) => (value == null ? "" : value), z.string().trim().max(max));
+
+const formEmail = z.preprocess(
+  (value) => (value == null ? "" : value),
+  z.union([z.literal(""), z.string().trim().email("E-mail inválido")])
+);
 
 export const manualAppointmentSchema = z.object({
   serviceId: z.string().min(1, "Selecione um procedimento"),
   dateKey: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data inválida"),
-  time: z.string().regex(/^\d{2}:\d{2}$/, "Informe um horário válido"),
+  time: z
+    .string()
+    .regex(/^\d{2}:\d{2}(:\d{2})?$/, "Informe um horário válido")
+    .transform((value) => value.slice(0, 5)),
   customerName: z.string().trim().min(2, "Informe o nome do cliente").max(120),
-  customerWhatsapp: z.string().trim().min(8, "Informe um WhatsApp válido").max(30),
-  customerEmail: z.string().trim().email("E-mail inválido").optional().or(z.literal("")),
-  origin: z.enum(APPOINTMENT_ORIGINS),
-  publicNote: z.string().trim().max(500).optional().or(z.literal("")),
-  internalNote: z.string().trim().max(1000).optional().or(z.literal("")),
-  status: z.enum(APPOINTMENT_STATUSES).default("pending"),
+  customerWhatsapp: whatsappField,
+  customerEmail: formEmail,
+  origin: z.enum(APPOINTMENT_ORIGINS, { error: "Selecione a origem" }),
+  publicNote: formText(500),
+  internalNote: formText(1000),
+  status: z.enum(APPOINTMENT_STATUSES, { error: "Selecione o status" }).default("pending"),
 });
 
 export type ManualAppointmentInput = z.infer<typeof manualAppointmentSchema>;
@@ -44,7 +56,10 @@ export type UpdateStatusInput = z.infer<typeof updateStatusSchema>;
 export const rescheduleSchema = z.object({
   appointmentId: z.string().min(1),
   dateKey: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data inválida"),
-  time: z.string().regex(/^\d{2}:\d{2}$/, "Informe um horário válido"),
+  time: z
+    .string()
+    .regex(/^\d{2}:\d{2}(:\d{2})?$/, "Informe um horário válido")
+    .transform((value) => value.slice(0, 5)),
 });
 
 export type RescheduleInput = z.infer<typeof rescheduleSchema>;

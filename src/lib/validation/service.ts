@@ -10,12 +10,53 @@ export const serviceSchema = z.object({
   durationMinutes: z.coerce.number().int().min(5, "Duração mínima de 5 minutos").max(600),
   priceCents: z.coerce.number().int().min(0, "Preço não pode ser negativo"),
   active: z.coerce.boolean(),
-  imagePath: z.string().trim().max(300).optional().or(z.literal("")),
+  imagePath: z
+    .string()
+    .trim()
+    .max(300)
+    .refine(
+      (value) => value === "" || value.startsWith("/assets/") || value.startsWith("/site-media/"),
+      "Imagem inválida",
+    )
+    .optional()
+    .or(z.literal("")),
   color: z
     .string()
     .trim()
     .regex(/^#[0-9a-fA-F]{6}$/, "Cor deve estar no formato #RRGGBB"),
   sortOrder: z.coerce.number().int().min(0).max(9999),
+  hasReturn: z.boolean().default(false),
+  returnAmount: z.preprocess(
+    (value) => (value === "" || value == null ? undefined : value),
+    z.coerce.number().int().min(1).max(365).optional(),
+  ),
+  returnUnit: z.preprocess(
+    (value) => (value === "" || value == null ? undefined : value),
+    z.enum(["days", "months"]).optional(),
+  ),
+}).superRefine((data, ctx) => {
+  if (!data.hasReturn) return;
+  if (!data.returnAmount) {
+    ctx.addIssue({
+      code: "custom",
+      message: "Informe em quanto tempo é o retorno.",
+      path: ["returnAmount"],
+    });
+  }
+  if (!data.returnUnit) {
+    ctx.addIssue({
+      code: "custom",
+      message: "Escolha se o retorno é em dias ou meses.",
+      path: ["returnUnit"],
+    });
+  }
+  if (data.returnUnit === "months" && data.returnAmount && data.returnAmount > 24) {
+    ctx.addIssue({
+      code: "custom",
+      message: "O retorno em meses pode ser de 1 a 24.",
+      path: ["returnAmount"],
+    });
+  }
 });
 
 export type ServiceInput = z.infer<typeof serviceSchema>;

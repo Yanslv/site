@@ -1,9 +1,9 @@
-import Image from "next/image";
 import { ArrowRight } from "lucide-react";
-import { hero } from "@/config/site";
+import type { SiteContent } from "@/lib/site-content";
+import MediaImage from "./MediaImage";
 import WhatsappCta from "./WhatsappCta";
 
-export default function Hero() {
+export default function Hero({ hero, href }: { hero: SiteContent["hero"]; href: string }) {
   return (
     <section
       id="hero"
@@ -17,11 +17,9 @@ export default function Hero() {
           <h1 className="text-4xl font-semibold leading-tight text-ink sm:text-5xl lg:text-[3.25rem]">
             {hero.headline}
           </h1>
-          <p className="max-w-xl text-base leading-relaxed text-ink/75 sm:text-lg">
-            {hero.description}
-          </p>
+          <p className="max-w-xl text-base leading-relaxed text-ink/75 sm:text-lg">{hero.description}</p>
           <div className="flex flex-col gap-3 sm:flex-row">
-            <WhatsappCta messageKey="general" label={hero.primaryCta} size="lg" />
+            <WhatsappCta href={href} label={hero.primaryCta} size="lg" />
             <a
               href="#procedimentos"
               className="inline-flex items-center justify-center gap-2 rounded-full border border-wine/30 px-7 py-4 text-base font-medium text-wine transition-colors hover:bg-surface"
@@ -34,13 +32,11 @@ export default function Hero() {
 
         <div className="order-1 lg:order-2">
           <div className="relative mx-auto aspect-[3/4] w-full max-w-md overflow-hidden rounded-[2rem] bg-surface shadow-xl shadow-wine/10 sm:max-w-lg">
-            <Image
-              src={hero.image.src}
-              alt={hero.image.alt}
-              fill
+            <MediaImage
+              src={hero.imagePath}
+              alt={hero.imageAlt}
               priority
               sizes="(min-width: 1024px) 480px, 90vw"
-              className="object-cover"
             />
           </div>
         </div>

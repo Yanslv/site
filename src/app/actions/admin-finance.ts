@@ -9,7 +9,8 @@ import { createTransaction, registerAppointmentPayment } from "@/server/finance"
 import { parseDateKey, zonedTimeToUtc } from "@/lib/timezone";
 
 function errorRedirect(basePath: string, message: string): never {
-  redirect(`${basePath}?erro=${encodeURIComponent(message)}`);
+  const separator = basePath.includes("?") ? "&" : "?";
+  redirect(`${basePath}${separator}erro=${encodeURIComponent(message)}`);
 }
 
 function dateKeyToNoonUtc(dateKeyValue: string) {
@@ -66,9 +67,15 @@ export async function registerPaymentAction(formData: FormData): Promise<void> {
     idempotencyKey: formData.get("idempotencyKey") || randomUUID(),
   });
 
+  const fallback = `/admin/agendamentos/${formData.get("appointmentId")}`;
+  const requestedReturn = formData.get("returnTo");
   const returnTo =
-    (formData.get("returnTo") as string | null) ||
-    `/admin/agendamentos/${formData.get("appointmentId")}`;
+    typeof requestedReturn === "string" &&
+    requestedReturn.startsWith("/admin") &&
+    !requestedReturn.startsWith("//") &&
+    !requestedReturn.includes("://")
+      ? requestedReturn
+      : fallback;
 
   if (!parsed.success) {
     errorRedirect(returnTo, parsed.error.issues[0]?.message ?? "Dados inválidos.");

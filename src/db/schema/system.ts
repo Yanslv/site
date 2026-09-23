@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, blob } from "drizzle-orm/sqlite-core";
 
 // Rate limit persistido em banco (não em memória do processo), pois funções
 // serverless na Vercel não compartilham memória entre invocações.
@@ -16,3 +16,12 @@ export const settings = sqliteTable("settings", {
 });
 
 export type Setting = typeof settings.$inferSelect;
+
+export const siteImages = sqliteTable("site_images", {
+  id: text("id").primaryKey(),
+  mime: text("mime").notNull(),
+  bytes: blob("bytes", { mode: "buffer" }).notNull(),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+});
+
+export type SiteImage = typeof siteImages.$inferSelect;

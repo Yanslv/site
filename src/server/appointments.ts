@@ -11,6 +11,7 @@ import {
   type Appointment,
   type AppointmentStatus,
   type AppointmentOrigin,
+  type Service,
 } from "@/db/schema";
 import {
   getBusinessHourRules,
@@ -22,8 +23,9 @@ import { getAutoConfirmAppointments } from "@/lib/settings";
 import { validateRequestedSlot, type SlotValidationFailureReason } from "@/lib/availability";
 import { generateProtocol } from "@/lib/protocol";
 import { canTransitionStatus } from "@/lib/validation/appointment";
-import { parseDateKey, zonedTimeToUtc, addMinutes, BUSINESS_TIMEZONE } from "@/lib/timezone";
+import { parseDateKey, zonedTimeToUtc, addMinutes, BUSINESS_TIMEZONE, formatZonedDateTime } from "@/lib/timezone";
 import { getServiceById } from "./services";
+import { findReturnSlot, plannedReturnInstant, returnRangeEnd, type ReturnUnit } from "@/lib/return-visit";
 
 export type BookingErrorReason = SlotValidationFailureReason | "service_unavailable";
 
@@ -56,6 +58,80 @@ async function loadAvailabilityContext(dateKeyValue: string, executor: DbExecuto
   const occupiedRanges = await getOccupiedRangesBetween(dayStartUtc, dayEndUtc, executor);
 
   return { businessHourRules, blockedPeriods, occupiedRanges };
+}
+
+async function attachReturnVisit(
+  tx: DbExecutor,
+  input: {
+    parent: Appointment;
+    service: Service;
+    now: Date;
+    userId: string | null;
+  },
+): Promise<void> {
+  if (!input.service.hasReturn || !input.service.returnAmount || !input.service.returnUnit) return;
+
+  const unit = input.service.returnUnit as ReturnUnit;
+  const plannedAt = plannedReturnInstant(input.parent.startAtUtc, input.service.returnAmount, unit);
+  const rangeEnd = returnRangeEnd(plannedAt);
+  const businessHourRules = await getBusinessHourRules(tx);
+  const blockedPeriods = await getBlockedPeriodsBetween(input.parent.startAtUtc, rangeEnd, tx);
+  const occupiedRanges = await getOccupiedRangesBetween(input.parent.startAtUtc, rangeEnd, tx);
+  const { slot } = findReturnSlot({
+    procedureStart: input.parent.startAtUtc,
+    amount: input.service.returnAmount,
+    unit,
+    durationMinutes: input.service.durationMinutes,
+    businessHours: businessHourRules,
+    blockedPeriods,
+    occupiedRanges,
+    now: input.now,
+  });
+
+  await tx
+    .update(appointments)
+    .set({ returnPlannedAt: plannedAt, updatedAt: input.now })
+    .where(eq(appointments.id, input.parent.id));
+
+  if (!slot) return;
+
+  const returnId = randomUUID();
+  const adjustedNote = slot.adjusted
+    ? `Retorno automático. O horário previsto (${formatZonedDateTime(plannedAt)}) não estava livre. Reservamos ${formatZonedDateTime(slot.startAtUtc)} e a cliente foi avisada.`
+    : `Retorno automático de ${input.service.name}, no mesmo horário do procedimento. A cliente foi avisada.`;
+
+  await tx.insert(appointments).values({
+    id: returnId,
+    protocol: generateProtocol(input.now),
+    customerId: input.parent.customerId,
+    serviceId: input.service.id,
+    serviceNameSnapshot: `Retorno — ${input.service.name}`,
+    serviceDurationSnapshot: input.service.durationMinutes,
+    servicePriceSnapshot: 0,
+    startAtUtc: slot.startAtUtc,
+    endAtUtc: slot.endAtUtc,
+    timezone: BUSINESS_TIMEZONE,
+    status: input.parent.status,
+    paymentStatus: "paid",
+    origin: input.parent.origin,
+    internalNote: adjustedNote,
+    kind: "return",
+    parentAppointmentId: input.parent.id,
+    returnAdjusted: slot.adjusted,
+    isDemo: false,
+    createdAt: input.now,
+    updatedAt: input.now,
+  });
+
+  await tx.insert(appointmentEvents).values({
+    id: randomUUID(),
+    appointmentId: returnId,
+    fromStatus: null,
+    toStatus: input.parent.status,
+    note: "Retorno reservado automaticamente a partir do procedimento.",
+    createdByUserId: input.userId,
+    createdAt: input.now,
+  });
 }
 
 /** Cria um agendamento solicitado publicamente por uma cliente em `/agendar`. */
@@ -130,6 +206,8 @@ export async function createPublicBooking(
         createdByUserId: null,
         createdAt: now,
       });
+
+      await attachReturnVisit(tx, { parent: appointment, service, now, userId: null });
 
       return { appointment, protocol };
     },
@@ -218,6 +296,8 @@ export async function createManualAppointment(
         createdAt: now,
       });
 
+      await attachReturnVisit(tx, { parent: appointment, service, now, userId: input.userId });
+
       return appointment;
     },
     { behavior: "immediate" }
@@ -266,7 +346,24 @@ export async function getAppointmentDetail(id: string) {
       )
     );
 
-  return { ...row, events, paidCents };
+  const [returnVisit] = await db
+    .select()
+    .from(appointments)
+    .where(eq(appointments.parentAppointmentId, id))
+    .orderBy(desc(appointments.createdAt))
+    .limit(1);
+
+  let parentVisit: Appointment | null = null;
+  if (row.appointment.parentAppointmentId) {
+    const [parent] = await db
+      .select()
+      .from(appointments)
+      .where(eq(appointments.id, row.appointment.parentAppointmentId))
+      .limit(1);
+    parentVisit = parent ?? null;
+  }
+
+  return { ...row, events, paidCents, returnVisit: returnVisit ?? null, parentVisit };
 }
 
 export type AppointmentFilters = {
@@ -281,7 +378,7 @@ export type AppointmentFilters = {
 };
 
 export async function listAppointments(filters: AppointmentFilters = {}) {
-  const conditions = [];
+  const conditions = [eq(appointments.isDemo, false)];
 
   if (filters.dateFrom) {
     const { year, month, day } = parseDateKey(filters.dateFrom);
@@ -301,13 +398,13 @@ export async function listAppointments(filters: AppointmentFilters = {}) {
   if (filters.serviceId) conditions.push(eq(appointments.serviceId, filters.serviceId));
   if (filters.customerId) conditions.push(eq(appointments.customerId, filters.customerId));
   if (filters.status && filters.status.length > 0) {
-    conditions.push(
-      or(...filters.status.map((s) => eq(appointments.status, s)))
-    );
+    const statusCondition = or(...filters.status.map((s) => eq(appointments.status, s)));
+    if (statusCondition) conditions.push(statusCondition);
   }
   if (filters.search) {
     const term = `%${filters.search.trim()}%`;
-    conditions.push(or(like(customers.name, term), like(customers.whatsapp, term)));
+    const searchCondition = or(like(customers.name, term), like(customers.whatsapp, term));
+    if (searchCondition) conditions.push(searchCondition);
   }
 
   const rows = await db
@@ -349,6 +446,32 @@ export async function updateAppointmentStatus(input: {
     createdAt: now,
   });
 
+  if (input.toStatus === "canceled" || input.toStatus === "confirmed") {
+    const children = await db
+      .select()
+      .from(appointments)
+      .where(eq(appointments.parentAppointmentId, input.id));
+    for (const child of children) {
+      if (!canTransitionStatus(child.status, input.toStatus)) continue;
+      await db
+        .update(appointments)
+        .set({ status: input.toStatus, updatedAt: now })
+        .where(eq(appointments.id, child.id));
+      await db.insert(appointmentEvents).values({
+        id: randomUUID(),
+        appointmentId: child.id,
+        fromStatus: child.status,
+        toStatus: input.toStatus,
+        note:
+          input.toStatus === "canceled"
+            ? "Cancelado junto com o procedimento."
+            : "Confirmado junto com o procedimento.",
+        createdByUserId: input.userId,
+        createdAt: now,
+      });
+    }
+  }
+
   return updated;
 }
 
@@ -382,6 +505,8 @@ export async function rescheduleAppointment(input: {
         businessHours: businessHourRules,
         blockedPeriods,
         occupiedRanges: filteredOccupied,
+        enforceBookingWindow: false,
+        slotIntervalMinutes: 1,
       });
 
       if (!validation.ok) {
@@ -391,7 +516,12 @@ export async function rescheduleAppointment(input: {
       const now = new Date();
       const [updated] = await tx
         .update(appointments)
-        .set({ startAtUtc, endAtUtc: validation.endAtUtc, updatedAt: now })
+        .set({
+          startAtUtc,
+          endAtUtc: validation.endAtUtc,
+          returnAdjusted: current.kind === "return" ? true : current.returnAdjusted,
+          updatedAt: now,
+        })
         .where(eq(appointments.id, input.id))
         .returning();
 
@@ -408,5 +538,95 @@ export async function rescheduleAppointment(input: {
       return updated;
     },
     { behavior: "immediate" }
+  );
+}
+
+export async function getReturnAppointment(parentId: string): Promise<Appointment | null> {
+  const [row] = await db
+    .select()
+    .from(appointments)
+    .where(eq(appointments.parentAppointmentId, parentId))
+    .orderBy(desc(appointments.createdAt))
+    .limit(1);
+  return row ?? null;
+}
+
+export async function schedulePendingReturn(input: {
+  parentId: string;
+  dateKey: string;
+  startAtIso: string;
+  userId: string;
+}): Promise<Appointment> {
+  const [parent] = await db.select().from(appointments).where(eq(appointments.id, input.parentId)).limit(1);
+  if (!parent || parent.kind === "return") throw new Error("Procedimento não encontrado.");
+  if (parent.status === "canceled") throw new Error("O procedimento está cancelado.");
+
+  const existing = await getReturnAppointment(parent.id);
+  if (existing && existing.status !== "canceled") {
+    throw new Error("Este procedimento já tem retorno marcado.");
+  }
+
+  const startAtUtc = new Date(input.startAtIso);
+
+  return db.transaction(
+    async (tx) => {
+      const { businessHourRules, blockedPeriods, occupiedRanges } = await loadAvailabilityContext(
+        input.dateKey,
+        tx,
+      );
+      const validation = validateRequestedSlot({
+        startAtUtc,
+        dateKey: input.dateKey,
+        durationMinutes: parent.serviceDurationSnapshot,
+        businessHours: businessHourRules,
+        blockedPeriods,
+        occupiedRanges,
+        enforceBookingWindow: false,
+        slotIntervalMinutes: 1,
+      });
+      if (!validation.ok) throw new BookingError(validation.reason);
+
+      const now = new Date();
+      const id = randomUUID();
+      const status = parent.status === "completed" || parent.status === "no_show" ? "confirmed" : parent.status;
+      const [created] = await tx
+        .insert(appointments)
+        .values({
+          id,
+          protocol: generateProtocol(now),
+          customerId: parent.customerId,
+          serviceId: parent.serviceId,
+          serviceNameSnapshot: `Retorno — ${parent.serviceNameSnapshot.replace(/^Retorno — /, "")}`,
+          serviceDurationSnapshot: parent.serviceDurationSnapshot,
+          servicePriceSnapshot: 0,
+          startAtUtc,
+          endAtUtc: validation.endAtUtc,
+          timezone: BUSINESS_TIMEZONE,
+          status,
+          paymentStatus: "paid",
+          origin: parent.origin,
+          internalNote: "Retorno marcado pela Ioná. A cliente precisa ser avisada no WhatsApp.",
+          kind: "return",
+          parentAppointmentId: parent.id,
+          returnAdjusted: parent.returnPlannedAt ? parent.returnPlannedAt.getTime() !== startAtUtc.getTime() : true,
+          isDemo: false,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .returning();
+
+      await tx.insert(appointmentEvents).values({
+        id: randomUUID(),
+        appointmentId: id,
+        fromStatus: null,
+        toStatus: status,
+        note: "Retorno marcado manualmente no painel.",
+        createdByUserId: input.userId,
+        createdAt: now,
+      });
+
+      return created;
+    },
+    { behavior: "immediate" },
   );
 }

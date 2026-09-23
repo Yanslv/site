@@ -1,23 +1,20 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
-import { desc, eq, like, or } from "drizzle-orm";
+import { and, desc, eq, like, or } from "drizzle-orm";
 import { db } from "@/db/client";
 import { customers, type Customer } from "@/db/schema";
-
-function normalizeWhatsapp(value: string): string {
-  return value.replace(/\D/g, "");
-}
+import { whatsappToCanonical } from "@/lib/masks";
 
 export async function findOrCreateCustomer(input: {
   name: string;
   whatsapp: string;
   email?: string | null;
 }): Promise<Customer> {
-  const normalized = normalizeWhatsapp(input.whatsapp);
+  const normalized = whatsappToCanonical(input.whatsapp);
   const [existing] = await db
     .select()
     .from(customers)
-    .where(like(customers.whatsapp, `%${normalized}%`))
+    .where(eq(customers.whatsapp, normalized))
     .limit(1);
 
   if (existing) {
@@ -25,6 +22,7 @@ export async function findOrCreateCustomer(input: {
       .update(customers)
       .set({
         name: input.name,
+        whatsapp: normalized,
         email: input.email || existing.email,
         updatedAt: new Date(),
       })
@@ -39,7 +37,7 @@ export async function findOrCreateCustomer(input: {
     .values({
       id: randomUUID(),
       name: input.name,
-      whatsapp: input.whatsapp,
+      whatsapp: normalized,
       email: input.email || null,
       isDemo: false,
       createdAt: now,
@@ -50,15 +48,16 @@ export async function findOrCreateCustomer(input: {
 }
 
 export async function listCustomers(search?: string): Promise<Customer[]> {
+  const realCustomers = eq(customers.isDemo, false);
   if (search && search.trim()) {
     const term = `%${search.trim()}%`;
     return db
       .select()
       .from(customers)
-      .where(or(like(customers.name, term), like(customers.whatsapp, term)))
+      .where(and(realCustomers, or(like(customers.name, term), like(customers.whatsapp, term))))
       .orderBy(desc(customers.createdAt));
   }
-  return db.select().from(customers).orderBy(desc(customers.createdAt));
+  return db.select().from(customers).where(realCustomers).orderBy(desc(customers.createdAt));
 }
 
 export async function getCustomerById(id: string): Promise<Customer | null> {

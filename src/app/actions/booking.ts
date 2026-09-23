@@ -7,8 +7,21 @@ import { createPublicBooking, BookingError } from "@/server/appointments";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { getServiceById } from "@/server/services";
 import { getBusinessHourRules, getBlockedPeriodsBetween, getOccupiedRangesBetween } from "@/server/schedule";
-import { getAvailableSlotsForDay, type Slot } from "@/lib/availability";
-import { parseDateKey, zonedTimeToUtc, addMinutes, BUSINESS_TIMEZONE } from "@/lib/timezone";
+import {
+  getCalendarDaySummary,
+  getDaySlots,
+  BOOKING_WINDOW_DAYS,
+  type SlotStatus,
+} from "@/lib/availability";
+import {
+  parseDateKey,
+  zonedTimeToUtc,
+  addMinutes,
+  addDaysToDateKey,
+  todayDateKey,
+  formatZonedTime,
+  BUSINESS_TIMEZONE,
+} from "@/lib/timezone";
 
 const BOOKING_ERROR_MESSAGES: Record<string, string> = {
   outside_business_hours: "Esse horário está fora do funcionamento da clínica.",
@@ -26,30 +39,96 @@ async function getClientIp(): Promise<string> {
   return headerList.get("x-real-ip") ?? "unknown";
 }
 
-export async function getAvailableSlotsAction(
-  serviceId: string,
-  dateKeyValue: string
-): Promise<Slot[]> {
+export type PublicSlot = {
+  startAtIso: string;
+  label: string;
+  status: Exclude<SlotStatus, "unavailable">;
+};
+
+export type PublicCalendarDay = {
+  dateKey: string;
+  isClosed: boolean;
+  availableCount: number;
+  occupiedCount: number;
+};
+
+async function loadRangeContext(fromDateKey: string, toDateKey: string) {
+  const from = parseDateKey(fromDateKey);
+  const to = parseDateKey(toDateKey);
+  const rangeStartUtc = zonedTimeToUtc(
+    { year: from.year, month: from.month, day: from.day, hour: 0, minute: 0 },
+    BUSINESS_TIMEZONE
+  );
+  const rangeEndUtc = addMinutes(
+    zonedTimeToUtc({ year: to.year, month: to.month, day: to.day, hour: 0, minute: 0 }, BUSINESS_TIMEZONE),
+    24 * 60
+  );
+
+  const [businessHours, blockedPeriods, occupiedRanges] = await Promise.all([
+    getBusinessHourRules(),
+    getBlockedPeriodsBetween(rangeStartUtc, rangeEndUtc),
+    getOccupiedRangesBetween(rangeStartUtc, rangeEndUtc),
+  ]);
+
+  return { businessHours, blockedPeriods, occupiedRanges };
+}
+
+export async function getBookingCalendarAction(serviceId: string): Promise<PublicCalendarDay[]> {
   const service = await getServiceById(serviceId);
   if (!service || !service.active) return [];
 
-  const { year, month, day } = parseDateKey(dateKeyValue);
-  const dayStartUtc = zonedTimeToUtc({ year, month, day, hour: 0, minute: 0 }, BUSINESS_TIMEZONE);
-  const dayEndUtc = addMinutes(dayStartUtc, 24 * 60);
+  const minDate = todayDateKey();
+  const maxDate = addDaysToDateKey(minDate, BOOKING_WINDOW_DAYS);
+  const { businessHours, blockedPeriods, occupiedRanges } = await loadRangeContext(minDate, maxDate);
 
-  const [businessHourRules, blockedPeriods, occupiedRanges] = await Promise.all([
-    getBusinessHourRules(),
-    getBlockedPeriodsBetween(dayStartUtc, dayEndUtc),
-    getOccupiedRangesBetween(dayStartUtc, dayEndUtc),
-  ]);
+  const days: PublicCalendarDay[] = [];
+  let cursor = minDate;
+  while (cursor <= maxDate) {
+    days.push(
+      getCalendarDaySummary({
+        dateKey: cursor,
+        durationMinutes: service.durationMinutes,
+        businessHours,
+        blockedPeriods,
+        occupiedRanges,
+      })
+    );
+    cursor = addDaysToDateKey(cursor, 1);
+  }
+  return days;
+}
 
-  return getAvailableSlotsForDay({
+export async function getDaySlotsAction(
+  serviceId: string,
+  dateKeyValue: string
+): Promise<PublicSlot[]> {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKeyValue)) return [];
+
+  const minDate = todayDateKey();
+  const maxDate = addDaysToDateKey(minDate, BOOKING_WINDOW_DAYS);
+  if (dateKeyValue < minDate || dateKeyValue > maxDate) return [];
+
+  const service = await getServiceById(serviceId);
+  if (!service || !service.active) return [];
+
+  const { businessHours, blockedPeriods, occupiedRanges } = await loadRangeContext(
+    dateKeyValue,
+    dateKeyValue
+  );
+
+  return getDaySlots({
     dateKey: dateKeyValue,
     durationMinutes: service.durationMinutes,
-    businessHours: businessHourRules,
+    businessHours,
     blockedPeriods,
     occupiedRanges,
-  });
+  })
+    .filter((slot): slot is typeof slot & { status: PublicSlot["status"] } => slot.status !== "unavailable")
+    .map((slot) => ({
+      startAtIso: slot.startAtUtc.toISOString(),
+      label: formatZonedTime(slot.startAtUtc),
+      status: slot.status,
+    }));
 }
 
 export type CreateBookingActionState =

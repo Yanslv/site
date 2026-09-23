@@ -3,11 +3,24 @@ import Link from "next/link";
 import { CalendarDays } from "lucide-react";
 import type { Service } from "@/db/schema";
 import { formatCentsToBRL } from "@/lib/money";
-import { getWhatsappUrlWithMessage } from "@/config/site";
+import { formatReturnInterval } from "@/lib/return-visit";
+import { whatsappHref } from "@/lib/whatsapp";
+import type { SiteContent } from "@/lib/site-content";
 import WhatsappCta from "./WhatsappCta";
 
-export default function ProcedureCard({ service }: { service: Service }) {
+export default function ProcedureCard({
+  service,
+  contact,
+}: {
+  service: Service;
+  contact: SiteContent["contact"];
+}) {
   const whatsappMessage = `Olá! Gostaria de saber mais sobre ${service.name} e como funciona a avaliação.`;
+  const href = whatsappHref({
+    number: contact.whatsappNumber,
+    publicLink: contact.whatsappPublicLink,
+    message: whatsappMessage,
+  });
 
   return (
     <article className="flex flex-col overflow-hidden rounded-2xl border border-surface bg-background shadow-sm transition-shadow hover:shadow-md">
@@ -30,6 +43,12 @@ export default function ProcedureCard({ service }: { service: Service }) {
         {service.description && (
           <p className="flex-1 text-sm leading-relaxed text-ink/70">{service.description}</p>
         )}
+        {service.hasReturn && service.returnAmount && service.returnUnit && (
+          <p className="text-sm text-wine">
+            Inclui retorno em {formatReturnInterval(service.returnAmount, service.returnUnit)}. A data fica
+            reservada quando você agenda.
+          </p>
+        )}
         <div className="flex items-center justify-between text-sm text-ink/70">
           <span>{service.durationMinutes} min</span>
           <span className="text-base font-semibold text-wine">{formatCentsToBRL(service.priceCents)}</span>
@@ -47,7 +66,7 @@ export default function ProcedureCard({ service }: { service: Service }) {
             variant="outline"
             size="md"
             className="w-full"
-            href={getWhatsappUrlWithMessage(whatsappMessage)}
+            href={href}
           />
         </div>
       </div>

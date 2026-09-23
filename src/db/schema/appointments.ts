@@ -49,6 +49,10 @@ export const appointments = sqliteTable(
     origin: text("origin", { enum: APPOINTMENT_ORIGINS }).notNull().default("site"),
     publicNote: text("public_note"),
     internalNote: text("internal_note"),
+    kind: text("kind", { enum: ["procedure", "return"] }).notNull().default("procedure"),
+    parentAppointmentId: text("parent_appointment_id"),
+    returnAdjusted: integer("return_adjusted", { mode: "boolean" }).notNull().default(false),
+    returnPlannedAt: integer("return_planned_at", { mode: "timestamp" }),
     isDemo: integer("is_demo", { mode: "boolean" }).notNull().default(false),
     createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
@@ -58,6 +62,7 @@ export const appointments = sqliteTable(
     index("appointments_status_idx").on(table.status),
     index("appointments_service_idx").on(table.serviceId),
     index("appointments_customer_idx").on(table.customerId),
+    index("appointments_parent_idx").on(table.parentAppointmentId),
   ]
 );
 

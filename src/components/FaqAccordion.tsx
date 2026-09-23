@@ -2,10 +2,10 @@
 
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
-import { faqItems } from "@/config/site";
+import type { SiteContent } from "@/lib/site-content";
 import SectionHeading from "./SectionHeading";
 
-export default function FaqAccordion() {
+export default function FaqAccordion({ items }: { items: SiteContent["faq"]["items"] }) {
   const [openIndex, setOpenIndex] = useState<number | null>(0);
 
   return (
@@ -14,7 +14,7 @@ export default function FaqAccordion() {
         <SectionHeading eyebrow="Dúvidas" title="Perguntas frequentes" align="center" />
 
         <div className="mt-10 flex flex-col gap-3">
-          {faqItems.map((item, index) => {
+          {items.map((item, index) => {
             const isOpen = openIndex === index;
             const panelId = `faq-panel-${index}`;
             const buttonId = `faq-button-${index}`;
@@ -53,11 +53,6 @@ export default function FaqAccordion() {
                   <div className="overflow-hidden">
                     <div className="px-5 pb-5 text-sm leading-relaxed text-ink/70 sm:text-base">
                       <p>{item.answer}</p>
-                      {item.provisional && (
-                        <p className="mt-2 text-xs font-medium uppercase tracking-wide text-rose">
-                          Resposta provisória — a confirmar com a profissional
-                        </p>
-                      )}
                     </div>
                   </div>
                 </div>

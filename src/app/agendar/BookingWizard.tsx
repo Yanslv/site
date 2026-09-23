@@ -1,22 +1,30 @@
 "use client";
 
-import { useMemo, useRef, useState, useActionState } from "react";
-import { Check, ChevronLeft, Clock, Loader2, Sparkles, CalendarDays, User, ClipboardCheck } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, useActionState } from "react";
+import { Check, ChevronLeft, Sparkles, CalendarDays, User, ClipboardCheck } from "lucide-react";
 import type { Service } from "@/db/schema";
 import { formatCentsToBRL } from "@/lib/money";
-import { todayDateKey, addDaysToDateKey, formatZonedDate, formatZonedTime } from "@/lib/timezone";
-import { getAvailableSlotsAction, createBookingAction, type CreateBookingActionState } from "@/app/actions/booking";
+import { todayDateKey, addDaysToDateKey, formatZonedDate } from "@/lib/timezone";
+import { formatReturnInterval, plannedReturnInstant, returnPreviewMessage } from "@/lib/return-visit";
+import {
+  getBookingCalendarAction,
+  getDaySlotsAction,
+  createBookingAction,
+  type CreateBookingActionState,
+  type PublicCalendarDay,
+  type PublicSlot,
+} from "@/app/actions/booking";
 import { BOOKING_WINDOW_DAYS } from "@/lib/availability";
+import { maskWhatsapp } from "@/lib/masks";
+import BookingDateTimeStep from "./BookingDateTimeStep";
 
-type Step = "service" | "date" | "time" | "info" | "review";
-type SlotOption = { startAtIso: string; label: string };
+type Step = "service" | "when" | "info" | "review";
 
 const initialActionState: CreateBookingActionState = { status: "idle" };
 
 const STEPS: { key: Step; label: string; icon: typeof Sparkles }[] = [
   { key: "service", label: "Procedimento", icon: Sparkles },
-  { key: "date", label: "Data", icon: CalendarDays },
-  { key: "time", label: "Horário", icon: Clock },
+  { key: "when", label: "Data e horário", icon: CalendarDays },
   { key: "info", label: "Seus dados", icon: User },
   { key: "review", label: "Revisão", icon: ClipboardCheck },
 ];
@@ -30,12 +38,14 @@ export default function BookingWizard({
 }) {
   const initialValidServiceId =
     initialServiceId && services.some((s) => s.id === initialServiceId) ? initialServiceId : null;
-  const [step, setStep] = useState<Step>(initialValidServiceId ? "date" : "service");
+  const [step, setStep] = useState<Step>(initialValidServiceId ? "when" : "service");
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(initialValidServiceId);
   const [dateKeyValue, setDateKeyValue] = useState("");
-  const [slots, setSlots] = useState<SlotOption[]>([]);
+  const [calendarDays, setCalendarDays] = useState<PublicCalendarDay[]>([]);
+  const [isLoadingCalendar, setIsLoadingCalendar] = useState(false);
+  const [slots, setSlots] = useState<PublicSlot[]>([]);
   const [isLoadingSlots, setIsLoadingSlots] = useState(false);
-  const [selectedSlot, setSelectedSlot] = useState<SlotOption | null>(null);
+  const [selectedSlot, setSelectedSlot] = useState<PublicSlot | null>(null);
   const [customerName, setCustomerName] = useState("");
   const [customerWhatsapp, setCustomerWhatsapp] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
@@ -53,10 +63,21 @@ export default function BookingWizard({
 
   const minDate = todayDateKey();
   const maxDate = addDaysToDateKey(minDate, BOOKING_WINDOW_DAYS);
-
-  // Última combinação serviço+data solicitada — evita que uma resposta lenta
-  // e desatualizada sobrescreva o resultado de uma solicitação mais recente.
   const latestRequestKey = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (step !== "when" || !selectedServiceId) return;
+    let cancelled = false;
+    setIsLoadingCalendar(true);
+    getBookingCalendarAction(selectedServiceId).then((days) => {
+      if (cancelled) return;
+      setCalendarDays(days);
+      setIsLoadingCalendar(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [step, selectedServiceId]);
 
   function loadSlotsFor(serviceId: string, requestedDateKey: string) {
     const requestKey = `${serviceId}:${requestedDateKey}`;
@@ -64,15 +85,10 @@ export default function BookingWizard({
     setSelectedSlot(null);
     setSlots([]);
     setIsLoadingSlots(true);
-    getAvailableSlotsAction(serviceId, requestedDateKey)
+    getDaySlotsAction(serviceId, requestedDateKey)
       .then((result) => {
         if (latestRequestKey.current !== requestKey) return;
-        setSlots(
-          result.map((slot) => ({
-            startAtIso: new Date(slot.startAtUtc).toISOString(),
-            label: formatZonedTime(new Date(slot.startAtUtc)),
-          }))
-        );
+        setSlots(result);
       })
       .finally(() => {
         if (latestRequestKey.current === requestKey) setIsLoadingSlots(false);
@@ -85,7 +101,6 @@ export default function BookingWizard({
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Indicador de progresso */}
       <ol className="flex flex-wrap gap-2 text-xs font-medium text-ink/50">
         {STEPS.map(({ key, label, icon: StepIcon }, i) => {
           const currentIndex = STEPS.findIndex((s) => s.key === step);
@@ -115,13 +130,21 @@ export default function BookingWizard({
               onClick={() => {
                 setSelectedServiceId(service.id);
                 setDateKeyValue("");
-                goTo("date");
+                setSlots([]);
+                setSelectedSlot(null);
+                setCalendarDays([]);
+                goTo("when");
               }}
               className="flex items-center justify-between gap-3 rounded-2xl border border-surface bg-background p-4 text-left shadow-sm transition-colors hover:border-wine"
             >
               <div>
                 <p className="font-medium text-ink">{service.name}</p>
-                <p className="text-sm text-ink/60">{service.durationMinutes} min</p>
+                <p className="text-sm text-ink/60">
+                  {service.durationMinutes} min
+                  {service.hasReturn && service.returnAmount && service.returnUnit
+                    ? ` · retorno em ${formatReturnInterval(service.returnAmount, service.returnUnit)}`
+                    : ""}
+                </p>
               </div>
               <span className="font-semibold text-wine">{formatCentsToBRL(service.priceCents)}</span>
             </button>
@@ -129,84 +152,32 @@ export default function BookingWizard({
         </div>
       )}
 
-      {step === "date" && selectedService && (
-        <div className="flex flex-col gap-4">
-          <button type="button" onClick={() => goTo("service")} className="inline-flex w-fit items-center gap-1 text-sm text-ink/60 hover:text-wine">
-            <ChevronLeft className="h-4 w-4" /> Trocar procedimento
-          </button>
-          <p className="text-sm text-ink/70">
-            {selectedService.name} · {selectedService.durationMinutes} min · {formatCentsToBRL(selectedService.priceCents)}
-          </p>
-          <label htmlFor="booking-date" className="text-sm font-medium text-ink/80">
-            Escolha uma data
-          </label>
-          <input
-            id="booking-date"
-            type="date"
-            min={minDate}
-            max={maxDate}
-            value={dateKeyValue}
-            onChange={(e) => {
-              const value = e.target.value;
-              setDateKeyValue(value);
-              if (value && selectedService) loadSlotsFor(selectedService.id, value);
-            }}
-            className="w-full max-w-xs rounded-xl border border-surface px-3 py-2.5 text-sm"
-          />
-          {dateKeyValue && (
-            <button
-              type="button"
-              disabled={isLoadingSlots}
-              onClick={() => goTo("time")}
-              className="inline-flex w-fit items-center gap-2 rounded-full bg-wine px-5 py-2.5 text-sm font-medium text-background hover:bg-ink disabled:opacity-60"
-            >
-              Ver horários
-            </button>
-          )}
-        </div>
-      )}
-
-      {step === "time" && selectedService && (
-        <div className="flex flex-col gap-4">
-          <button type="button" onClick={() => goTo("date")} className="inline-flex w-fit items-center gap-1 text-sm text-ink/60 hover:text-wine">
-            <ChevronLeft className="h-4 w-4" /> Trocar data
-          </button>
-          <p className="text-sm text-ink/70">{formatZonedDate(new Date(`${dateKeyValue}T12:00:00Z`))}</p>
-
-          {isLoadingSlots && (
-            <p className="flex items-center gap-2 text-sm text-ink/60">
-              <Loader2 className="h-4 w-4 animate-spin" /> Carregando horários...
-            </p>
-          )}
-
-          {!isLoadingSlots && slots.length === 0 && (
-            <p className="rounded-xl bg-surface/40 p-4 text-sm text-ink/60">
-              Nenhum horário disponível nessa data. Escolha outra data.
-            </p>
-          )}
-
-          <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-            {slots.map((slot) => (
-              <button
-                key={slot.startAtIso}
-                type="button"
-                onClick={() => {
-                  setSelectedSlot(slot);
-                  goTo("info");
-                }}
-                className="flex items-center justify-center gap-1 rounded-xl border border-surface px-3 py-2 text-sm font-medium text-ink hover:border-wine hover:bg-surface/40"
-              >
-                <Clock className="h-3.5 w-3.5 text-rose" /> {slot.label}
-              </button>
-            ))}
-          </div>
-        </div>
+      {step === "when" && selectedService && (
+        <BookingDateTimeStep
+          service={selectedService}
+          minDate={minDate}
+          maxDate={maxDate}
+          dateKeyValue={dateKeyValue}
+          calendarDays={calendarDays}
+          isLoadingCalendar={isLoadingCalendar}
+          slots={slots}
+          isLoadingSlots={isLoadingSlots}
+          onSelectDate={(value) => {
+            setDateKeyValue(value);
+            loadSlotsFor(selectedService.id, value);
+          }}
+          onSelectSlot={(slot) => {
+            setSelectedSlot(slot);
+            goTo("info");
+          }}
+          onBack={() => goTo("service")}
+        />
       )}
 
       {step === "info" && selectedService && selectedSlot && (
         <div className="flex flex-col gap-4">
-          <button type="button" onClick={() => goTo("time")} className="inline-flex w-fit items-center gap-1 text-sm text-ink/60 hover:text-wine">
-            <ChevronLeft className="h-4 w-4" /> Trocar horário
+          <button type="button" onClick={() => goTo("when")} className="inline-flex w-fit items-center gap-1 text-sm text-ink/60 hover:text-wine">
+            <ChevronLeft className="h-4 w-4" /> Trocar data ou horário
           </button>
           <div className="flex flex-col gap-1.5">
             <label htmlFor="customerName" className="text-sm font-medium text-ink/80">
@@ -226,8 +197,10 @@ export default function BookingWizard({
             </label>
             <input
               id="customerWhatsapp"
+              inputMode="tel"
+              autoComplete="tel"
               value={customerWhatsapp}
-              onChange={(e) => setCustomerWhatsapp(e.target.value)}
+              onChange={(e) => setCustomerWhatsapp(maskWhatsapp(e.target.value))}
               placeholder="(65) 90000-0000"
               required
               className="rounded-xl border border-surface px-3 py-2.5 text-sm"
@@ -300,6 +273,18 @@ export default function BookingWizard({
                 <dt className="text-ink/60">Preço</dt>
                 <dd className="font-medium text-ink">{formatCentsToBRL(selectedService.priceCents)}</dd>
               </div>
+              {selectedService.hasReturn && selectedService.returnAmount && selectedService.returnUnit && (
+                <div className="rounded-xl bg-rose/10 px-3 py-2 text-sm leading-relaxed text-ink">
+                  {returnPreviewMessage(
+                    formatReturnInterval(selectedService.returnAmount, selectedService.returnUnit),
+                    plannedReturnInstant(
+                      new Date(selectedSlot.startAtIso),
+                      selectedService.returnAmount,
+                      selectedService.returnUnit,
+                    ),
+                  )}
+                </div>
+              )}
               <div className="flex justify-between">
                 <dt className="text-ink/60">Cliente</dt>
                 <dd className="font-medium text-ink">{customerName}</dd>
@@ -315,9 +300,7 @@ export default function BookingWizard({
             <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{state.message}</p>
           )}
 
-          <p className="text-xs text-ink/50">
-            A Ioná confirma seu horário pelo WhatsApp.
-          </p>
+          <p className="text-xs text-ink/50">A Ioná confirma seu horário pelo WhatsApp.</p>
 
           <button
             type="submit"

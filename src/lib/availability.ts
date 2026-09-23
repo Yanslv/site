@@ -19,6 +19,17 @@ export type TimeRange = { start: Date; end: Date };
 
 export type Slot = { startAtUtc: Date; endAtUtc: Date };
 
+export type SlotStatus = "available" | "occupied" | "unavailable";
+
+export type DaySlot = Slot & { status: SlotStatus };
+
+export type CalendarDaySummary = {
+  dateKey: string;
+  isClosed: boolean;
+  availableCount: number;
+  occupiedCount: number;
+};
+
 function overlaps(a: TimeRange, b: TimeRange): boolean {
   return a.start < b.end && a.end > b.start;
 }
@@ -65,8 +76,19 @@ export type AvailabilityInput = {
   slotIntervalMinutes?: number;
 };
 
-/** Lista os horários de início disponíveis para um dia (uso na UI de agendamento). */
-export function getAvailableSlotsForDay(input: AvailabilityInput): Slot[] {
+function classifySlot(
+  candidate: TimeRange,
+  now: Date,
+  blockedPeriods: TimeRange[],
+  occupiedRanges: TimeRange[]
+): SlotStatus {
+  if (candidate.start.getTime() <= now.getTime()) return "unavailable";
+  if (occupiedRanges.some((range) => overlaps(candidate, range))) return "occupied";
+  if (blockedPeriods.some((block) => overlaps(candidate, block))) return "unavailable";
+  return "available";
+}
+
+export function getDaySlots(input: AvailabilityInput): DaySlot[] {
   const {
     dateKey: dateKeyValue,
     durationMinutes,
@@ -81,25 +103,44 @@ export function getAvailableSlotsForDay(input: AvailabilityInput): Slot[] {
   const window = getBusinessWindowForDate(dateKeyValue, businessHours, timeZone);
   if (!window) return [];
 
-  const slots: Slot[] = [];
+  const slots: DaySlot[] = [];
   let cursor = window.start;
   while (true) {
     const slotEnd = addMinutes(cursor, durationMinutes);
     if (slotEnd > window.end) break;
 
     const candidate: TimeRange = { start: cursor, end: slotEnd };
-    const isPast = cursor.getTime() <= now.getTime();
-    const isBlocked = blockedPeriods.some((block) => overlaps(candidate, block));
-    const isTaken = occupiedRanges.some((range) => overlaps(candidate, range));
-
-    if (!isPast && !isBlocked && !isTaken) {
-      slots.push({ startAtUtc: cursor, endAtUtc: slotEnd });
-    }
-
+    slots.push({
+      startAtUtc: cursor,
+      endAtUtc: slotEnd,
+      status: classifySlot(candidate, now, blockedPeriods, occupiedRanges),
+    });
     cursor = addMinutes(cursor, slotIntervalMinutes);
   }
 
   return slots;
+}
+
+export function getAvailableSlotsForDay(input: AvailabilityInput): Slot[] {
+  return getDaySlots(input)
+    .filter((slot) => slot.status === "available")
+    .map(({ startAtUtc, endAtUtc }) => ({ startAtUtc, endAtUtc }));
+}
+
+export function getCalendarDaySummary(input: AvailabilityInput): CalendarDaySummary {
+  const timeZone = input.timeZone ?? BUSINESS_TIMEZONE;
+  const window = getBusinessWindowForDate(input.dateKey, input.businessHours, timeZone);
+  if (!window) {
+    return { dateKey: input.dateKey, isClosed: true, availableCount: 0, occupiedCount: 0 };
+  }
+
+  const slots = getDaySlots(input);
+  return {
+    dateKey: input.dateKey,
+    isClosed: false,
+    availableCount: slots.filter((slot) => slot.status === "available").length,
+    occupiedCount: slots.filter((slot) => slot.status === "occupied").length,
+  };
 }
 
 export type ValidateSlotInput = {

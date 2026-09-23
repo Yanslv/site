@@ -1,4 +1,7 @@
 import type { Service } from "@/db/schema";
+import { MoneyField, SlugField } from "@/components/admin/MaskedFields";
+import CompressedImageInput from "@/components/admin/site/CompressedImageInput";
+import ReturnIntervalFields from "@/components/admin/ReturnIntervalFields";
 
 export default function ServiceForm({
   action,
@@ -24,19 +27,7 @@ export default function ServiceForm({
             className="rounded-xl border border-surface bg-background px-3 py-2.5 text-sm focus:border-wine focus:outline-none focus:ring-2 focus:ring-wine/20"
           />
         </div>
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="slug" className="text-sm font-medium text-ink/80">
-            Slug
-          </label>
-          <input
-            id="slug"
-            name="slug"
-            required
-            defaultValue={service?.slug}
-            placeholder="nano-fios"
-            className="rounded-xl border border-surface bg-background px-3 py-2.5 text-sm focus:border-wine focus:outline-none focus:ring-2 focus:ring-wine/20"
-          />
-        </div>
+        <SlugField id="slug" defaultValue={service?.slug} />
       </div>
 
       <div className="flex flex-col gap-1.5">
@@ -65,16 +56,9 @@ export default function ServiceForm({
           />
         </div>
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="imagePath" className="text-sm font-medium text-ink/80">
-            Caminho da imagem
-          </label>
-          <input
-            id="imagePath"
-            name="imagePath"
-            defaultValue={service?.imagePath ?? ""}
-            placeholder="/assets/asset_010_....jpg"
-            className="rounded-xl border border-surface bg-background px-3 py-2.5 text-sm focus:border-wine focus:outline-none focus:ring-2 focus:ring-wine/20"
-          />
+          <span className="text-sm font-medium text-ink/80">Foto</span>
+          <input type="hidden" name="imagePath" value={service?.imagePath ?? ""} />
+          <CompressedImageInput name="image" previewPath={service?.imagePath ?? ""} />
         </div>
       </div>
 
@@ -93,20 +77,7 @@ export default function ServiceForm({
             className="rounded-xl border border-surface bg-background px-3 py-2.5 text-sm focus:border-wine focus:outline-none focus:ring-2 focus:ring-wine/20"
           />
         </div>
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="priceCents" className="text-sm font-medium text-ink/80">
-            Preço (centavos)
-          </label>
-          <input
-            id="priceCents"
-            name="priceCents"
-            type="number"
-            min={0}
-            required
-            defaultValue={service?.priceCents ?? 0}
-            className="rounded-xl border border-surface bg-background px-3 py-2.5 text-sm focus:border-wine focus:outline-none focus:ring-2 focus:ring-wine/20"
-          />
-        </div>
+        <MoneyField id="priceCents" name="priceCents" label="Preço" defaultCents={service?.priceCents ?? 0} required />
         <div className="flex flex-col gap-1.5">
           <label htmlFor="color" className="text-sm font-medium text-ink/80">
             Cor
@@ -114,10 +85,10 @@ export default function ServiceForm({
           <input
             id="color"
             name="color"
-            type="text"
+            type="color"
             required
             defaultValue={service?.color ?? "#B86F78"}
-            className="rounded-xl border border-surface bg-background px-3 py-2.5 text-sm focus:border-wine focus:outline-none focus:ring-2 focus:ring-wine/20"
+            className="h-11 w-full cursor-pointer rounded-xl border border-surface bg-background px-2 py-1"
           />
         </div>
         <div className="flex flex-col gap-1.5">
@@ -136,6 +107,12 @@ export default function ServiceForm({
         </div>
       </div>
 
+      <ReturnIntervalFields
+        hasReturn={service?.hasReturn ?? false}
+        returnAmount={service?.returnAmount ?? null}
+        returnUnit={service?.returnUnit ?? null}
+      />
+
       <label className="flex items-center gap-2 text-sm text-ink/80">
         <input
           type="checkbox"
@@ -145,10 +122,6 @@ export default function ServiceForm({
         />
         Ativo (visível na landing page e no agendamento)
       </label>
-
-      <p className="text-xs text-ink/50">
-        Preço em centavos: R$ 650,00 = 65000. Duração em minutos.
-      </p>
 
       <button
         type="submit"

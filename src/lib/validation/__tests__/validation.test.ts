@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { publicBookingSchema } from "../booking";
 import { serviceSchema } from "../service";
-import { transactionSchema } from "../transaction";
-import { canTransitionStatus } from "../appointment";
+import { transactionSchema, registerPaymentSchema } from "../transaction";
+import { canTransitionStatus, manualAppointmentSchema } from "../appointment";
 
 describe("publicBookingSchema", () => {
   const valid = {
@@ -15,8 +15,10 @@ describe("publicBookingSchema", () => {
     publicNote: "",
   };
 
-  it("aceita um payload válido", () => {
-    expect(publicBookingSchema.safeParse(valid).success).toBe(true);
+  it("aceita um payload válido e grava o WhatsApp com DDI", () => {
+    const result = publicBookingSchema.safeParse(valid);
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.customerWhatsapp).toBe("5565900000000");
   });
 
   it("rejeita nome muito curto", () => {
@@ -73,6 +75,22 @@ describe("serviceSchema", () => {
     }).success).toBe(false);
   });
 
+  it("exige o prazo quando o procedimento tem retorno", () => {
+    const result = serviceSchema.safeParse({
+      name: "Nano Fios",
+      slug: "nano-fios",
+      durationMinutes: "60",
+      priceCents: "1000",
+      active: true,
+      color: "#7E3948",
+      sortOrder: "1",
+      hasReturn: true,
+      returnAmount: "",
+      returnUnit: "",
+    });
+    expect(result.success).toBe(false);
+  });
+
   it("rejeita preço negativo", () => {
     expect(serviceSchema.safeParse({
       name: "Nano Fios",
@@ -121,6 +139,61 @@ describe("transactionSchema", () => {
       status: "paid",
     });
     expect(result.success).toBe(false);
+  });
+});
+
+describe("manualAppointmentSchema", () => {
+  const valid = {
+    serviceId: "svc-1",
+    dateKey: "2026-09-24",
+    time: "10:00",
+    customerName: "Maria da Silva",
+    customerWhatsapp: "(65) 90000-0000",
+    customerEmail: "",
+    origin: "presencial",
+    publicNote: "",
+    internalNote: "",
+    status: "confirmed",
+  };
+
+  it("aceita payload válido do painel", () => {
+    expect(manualAppointmentSchema.safeParse(valid).success).toBe(true);
+  });
+
+  it("aceita campos ausentes do FormData como vazio (null)", () => {
+    const result = manualAppointmentSchema.safeParse({
+      ...valid,
+      customerEmail: null,
+      publicNote: null,
+      internalNote: null,
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.publicNote).toBe("");
+      expect(result.data.internalNote).toBe("");
+    }
+  });
+
+  it("aceita horário do input type=time com segundos", () => {
+    const result = manualAppointmentSchema.safeParse({ ...valid, time: "10:00:00" });
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.time).toBe("10:00");
+  });
+});
+
+describe("registerPaymentSchema", () => {
+  it("aceita Pix, dinheiro e cartão sem observação", () => {
+    for (const paymentMethod of ["pix", "dinheiro", "cartao"]) {
+      const result = registerPaymentSchema.safeParse({
+        appointmentId: "apt-1",
+        amountCents: "15000",
+        paymentMethod,
+        financialDate: "2026-09-23",
+        note: null,
+        idempotencyKey: "key-1",
+      });
+      expect(result.success).toBe(true);
+    }
   });
 });
 

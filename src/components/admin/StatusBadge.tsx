@@ -10,10 +10,10 @@ const APPOINTMENT_STATUS_LABELS: Record<string, string> = {
 };
 
 const APPOINTMENT_STATUS_CLASSES: Record<string, string> = {
-  pending: "bg-gold/20 text-gold",
-  confirmed: "bg-surface text-wine",
-  completed: "bg-wine text-background",
-  canceled: "bg-ink/10 text-ink/60",
+  pending: "bg-amber-100 text-amber-800",
+  confirmed: "bg-green-100 text-green-800",
+  completed: "bg-emerald-100 text-emerald-800",
+  canceled: "bg-stone-200 text-stone-600",
   no_show: "bg-red-100 text-red-700",
 };
 

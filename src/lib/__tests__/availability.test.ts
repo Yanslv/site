@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { getAvailableSlotsForDay, validateRequestedSlot, type BusinessHourRule } from "../availability";
+import {
+  getAvailableSlotsForDay,
+  getDaySlots,
+  getCalendarDaySummary,
+  validateRequestedSlot,
+  type BusinessHourRule,
+} from "../availability";
 import { zonedTimeToUtc, BUSINESS_TIMEZONE } from "../timezone";
 
 // Segunda a sexta 09:00-18:00, sábado 09:00-13:00, domingo fechado.
@@ -91,6 +97,65 @@ describe("getAvailableSlotsForDay", () => {
     expect(slots.some((s) => s.startAtUtc.getTime() === wall(9, 0).getTime())).toBe(false);
     expect(slots.some((s) => s.startAtUtc.getTime() === wall(9, 15).getTime())).toBe(false);
     expect(slots.some((s) => s.startAtUtc.getTime() === wall(10, 30).getTime())).toBe(true);
+  });
+
+  it("marca horários ocupados e mantém os livres", () => {
+    const slots = getDaySlots({
+      dateKey: MONDAY,
+      durationMinutes: 60,
+      businessHours: BUSINESS_HOURS,
+      blockedPeriods: [],
+      occupiedRanges: [{ start: wall(9, 0), end: wall(10, 30) }],
+      now: NOW,
+    });
+    expect(slots.find((s) => s.startAtUtc.getTime() === wall(9, 0).getTime())?.status).toBe("occupied");
+    expect(slots.find((s) => s.startAtUtc.getTime() === wall(9, 15).getTime())?.status).toBe("occupied");
+    expect(slots.find((s) => s.startAtUtc.getTime() === wall(10, 30).getTime())?.status).toBe("available");
+  });
+
+  it("marca bloqueio e horário passado como indisponível", () => {
+    const slots = getDaySlots({
+      dateKey: MONDAY,
+      durationMinutes: 60,
+      businessHours: BUSINESS_HOURS,
+      blockedPeriods: [{ start: wall(14, 0), end: wall(16, 0) }],
+      occupiedRanges: [],
+      now: wall(12, 0),
+    });
+    expect(slots.find((s) => s.startAtUtc.getTime() === wall(11, 0).getTime())?.status).toBe("unavailable");
+    expect(slots.find((s) => s.startAtUtc.getTime() === wall(14, 0).getTime())?.status).toBe("unavailable");
+    expect(slots.find((s) => s.startAtUtc.getTime() === wall(16, 0).getTime())?.status).toBe("available");
+  });
+
+  it("resume o dia com contagem de livres e ocupados", () => {
+    const summary = getCalendarDaySummary({
+      dateKey: MONDAY,
+      durationMinutes: 60,
+      businessHours: BUSINESS_HOURS,
+      blockedPeriods: [],
+      occupiedRanges: [{ start: wall(9, 0), end: wall(10, 0) }],
+      now: NOW,
+    });
+    expect(summary.isClosed).toBe(false);
+    expect(summary.occupiedCount).toBeGreaterThan(0);
+    expect(summary.availableCount).toBeGreaterThan(0);
+  });
+
+  it("marca domingo como fechado no resumo", () => {
+    const summary = getCalendarDaySummary({
+      dateKey: SUNDAY,
+      durationMinutes: 60,
+      businessHours: BUSINESS_HOURS,
+      blockedPeriods: [],
+      occupiedRanges: [],
+      now: NOW,
+    });
+    expect(summary).toEqual({
+      dateKey: SUNDAY,
+      isClosed: true,
+      availableCount: 0,
+      occupiedCount: 0,
+    });
   });
 
   it("não oferece horários no passado", () => {

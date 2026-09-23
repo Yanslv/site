@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CheckCircle2, Clock, MessageCircle } from "lucide-react";
-import { getAppointmentByProtocol } from "@/server/appointments";
+import { getAppointmentByProtocol, getReturnAppointment } from "@/server/appointments";
 import { formatCentsToBRL } from "@/lib/money";
 import { formatZonedDate, formatZonedTime } from "@/lib/timezone";
-import { getWhatsappUrlWithMessage } from "@/config/site";
+import { getSiteContent } from "@/server/site-content";
+import { whatsappHref } from "@/lib/whatsapp";
 
 export const metadata: Metadata = {
   title: "Agendamento solicitado | Bendita Micro",
@@ -33,9 +34,21 @@ export default async function AgendarSucessoPage({
     );
   }
 
+  const site = await getSiteContent();
+  const returnVisit = await getReturnAppointment(appointment.id);
+  const openReturn = returnVisit && returnVisit.status !== "canceled" ? returnVisit : null;
+  const returnLine = openReturn
+    ? ` Retorno já reservado: ${formatZonedDate(openReturn.startAtUtc)} às ${formatZonedTime(openReturn.startAtUtc)}. Protocolo do retorno: ${openReturn.protocol}.${
+        openReturn.returnAdjusted && appointment.returnPlannedAt
+          ? ` O horário previsto era ${formatZonedDate(appointment.returnPlannedAt)} às ${formatZonedTime(appointment.returnPlannedAt)}, mas não estava livre.`
+          : ""
+      } Se precisar remarcar o retorno, me avise.`
+    : appointment.returnPlannedAt
+      ? ` Este procedimento tem retorno previsto para ${formatZonedDate(appointment.returnPlannedAt)} às ${formatZonedTime(appointment.returnPlannedAt)}. A agenda estava cheia e a Ioná vai confirmar o horário do retorno.`
+      : "";
   const whatsappMessage = `Olá! Acabei de solicitar um agendamento na Bendita Micro. Procedimento: ${appointment.serviceNameSnapshot}. Data: ${formatZonedDate(
     appointment.startAtUtc
-  )}. Horário: ${formatZonedTime(appointment.startAtUtc)}. Protocolo: ${appointment.protocol}.`;
+  )}. Horário: ${formatZonedTime(appointment.startAtUtc)}. Protocolo: ${appointment.protocol}.${returnLine}`;
 
   return (
     <div className="min-h-screen bg-background">
@@ -80,8 +93,43 @@ export default async function AgendarSucessoPage({
           </dl>
         </div>
 
+        {openReturn && (
+          <div className="mt-4 rounded-2xl border border-wine/30 bg-rose/10 p-6 text-left">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-wine">Retorno já reservado</h2>
+            <p className="mt-2 text-sm leading-relaxed text-ink">
+              {formatZonedDate(openReturn.startAtUtc)} às {formatZonedTime(openReturn.startAtUtc)}. Protocolo{" "}
+              <strong>{openReturn.protocol}</strong>. Esse horário já está na agenda da Ioná.
+            </p>
+            {openReturn.returnAdjusted && appointment.returnPlannedAt && (
+              <p className="mt-2 text-sm leading-relaxed text-ink">
+                O horário previsto era {formatZonedDate(appointment.returnPlannedAt)} às{" "}
+                {formatZonedTime(appointment.returnPlannedAt)}, no mesmo horário do procedimento. Ele não estava
+                livre, então reservamos o próximo disponível.
+              </p>
+            )}
+            <p className="mt-2 text-sm leading-relaxed text-ink">
+              Dá para remarcar. Fale com a Ioná pelo WhatsApp e diga o protocolo do retorno.
+            </p>
+          </div>
+        )}
+
+        {!openReturn && appointment.returnPlannedAt && (
+          <div className="mt-4 rounded-2xl border border-wine/30 bg-rose/10 p-6 text-left">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-wine">Retorno previsto</h2>
+            <p className="mt-2 text-sm leading-relaxed text-ink">
+              A data prevista é {formatZonedDate(appointment.returnPlannedAt)} às{" "}
+              {formatZonedTime(appointment.returnPlannedAt)}. A agenda estava cheia nesse período, então a Ioná
+              confirma o horário do retorno pelo WhatsApp. Nada ficou marcado em cima de outro atendimento.
+            </p>
+          </div>
+        )}
+
         <a
-          href={getWhatsappUrlWithMessage(whatsappMessage)}
+          href={whatsappHref({
+            number: site.contact.whatsappNumber,
+            publicLink: site.contact.whatsappPublicLink,
+            message: whatsappMessage,
+          })}
           target="_blank"
           rel="noopener noreferrer"
           className="mt-6 inline-flex items-center gap-2 rounded-full bg-wine px-6 py-3 text-sm font-medium text-background hover:bg-ink"

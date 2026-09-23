@@ -1,6 +1,6 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { services, type Service } from "@/db/schema";
 import type { ServiceInput } from "@/lib/validation/service";
@@ -9,12 +9,12 @@ export async function listActiveServices(): Promise<Service[]> {
   return db
     .select()
     .from(services)
-    .where(eq(services.active, true))
+    .where(and(eq(services.active, true), eq(services.isDemo, false)))
     .orderBy(asc(services.sortOrder));
 }
 
 export async function listAllServices(): Promise<Service[]> {
-  return db.select().from(services).orderBy(asc(services.sortOrder));
+  return db.select().from(services).where(eq(services.isDemo, false)).orderBy(asc(services.sortOrder));
 }
 
 export async function getServiceById(id: string): Promise<Service | null> {
@@ -43,6 +43,9 @@ export async function createService(input: ServiceInput): Promise<Service> {
       imagePath: input.imagePath || null,
       color: input.color,
       sortOrder: input.sortOrder,
+      hasReturn: input.hasReturn,
+      returnAmount: input.hasReturn ? (input.returnAmount ?? null) : null,
+      returnUnit: input.hasReturn ? (input.returnUnit ?? null) : null,
       isDemo: false,
       createdAt: now,
       updatedAt: now,
@@ -65,6 +68,10 @@ export async function updateService(id: string, input: ServiceInput): Promise<Se
       imagePath: input.imagePath || null,
       color: input.color,
       sortOrder: input.sortOrder,
+      hasReturn: input.hasReturn,
+      returnAmount: input.hasReturn ? (input.returnAmount ?? null) : null,
+      returnUnit: input.hasReturn ? (input.returnUnit ?? null) : null,
+      isDemo: false,
       updatedAt: new Date(),
     })
     .where(eq(services.id, id))

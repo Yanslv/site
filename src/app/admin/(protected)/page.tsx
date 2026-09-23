@@ -12,10 +12,13 @@ import {
   PiggyBank,
   Hourglass,
 } from "lucide-react";
-import { getOverviewMetrics, getMonthlyChartData, getRevenueByServiceChart } from "@/server/dashboard";
+import { getOverviewMetrics, getMonthlyChartData, getRevenueByServiceChart, getDayAttendance } from "@/server/dashboard";
 import { formatCentsToBRL } from "@/lib/money";
 import { zonedTimeToUtc, todayDateKey } from "@/lib/timezone";
 import StatCard from "@/components/admin/StatCard";
+import DayAttendance from "@/components/admin/DayAttendance";
+import ErrorBanner from "@/components/admin/ErrorBanner";
+import SuccessToast from "@/components/admin/SuccessToast";
 import { MonthlyFlowChart, RevenueByServiceChart } from "@/components/admin/OverviewCharts";
 
 export const metadata: Metadata = { title: "Visão geral | Painel Bendita Micro" };
@@ -35,6 +38,10 @@ function shiftMonthKey(monthKey: string, delta: number): string {
   return `${date.getUTCFullYear()}-${(date.getUTCMonth() + 1).toString().padStart(2, "0")}`;
 }
 
+function isDateKey(value: string | undefined): value is string {
+  return !!value && /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
+
 function monthLabel(monthKey: string): string {
   const { year, month } = parseMonthKey(monthKey);
   return new Date(Date.UTC(year, month - 1, 1)).toLocaleDateString("pt-BR", {
@@ -47,10 +54,12 @@ function monthLabel(monthKey: string): string {
 export default async function AdminOverviewPage({
   searchParams,
 }: {
-  searchParams: Promise<{ mes?: string }>;
+  searchParams: Promise<{ mes?: string; dia?: string; erro?: string; anamnese?: string }>;
 }) {
   const params = await searchParams;
-  const monthKey = params.mes ?? monthKeyFromDateKey(todayDateKey());
+  const today = todayDateKey();
+  const monthKey = params.mes ?? monthKeyFromDateKey(today);
+  const dayKey = isDateKey(params.dia) ? params.dia : today;
   const { year, month } = parseMonthKey(monthKey);
 
   const periodStart = zonedTimeToUtc({ year, month, day: 1, hour: 0, minute: 0 });
@@ -63,10 +72,11 @@ export default async function AdminOverviewPage({
   });
   const periodEnd = new Date(nextMonthStart.getTime() - 1000);
 
-  const [metrics, monthlyChart, revenueByService] = await Promise.all([
+  const [metrics, monthlyChart, revenueByService, attendance] = await Promise.all([
     getOverviewMetrics(periodStart, periodEnd),
     getMonthlyChartData(6),
     getRevenueByServiceChart(periodStart, periodEnd),
+    getDayAttendance(dayKey),
   ]);
 
   return (
@@ -78,19 +88,24 @@ export default async function AdminOverviewPage({
         </div>
         <div className="flex items-center gap-2">
           <Link
-            href={`/admin?mes=${shiftMonthKey(monthKey, -1)}`}
+            href={`/admin?mes=${shiftMonthKey(monthKey, -1)}&dia=${dayKey}`}
             className="inline-flex items-center gap-1 rounded-full border border-surface px-3 py-1.5 text-sm text-ink/70 hover:bg-surface"
           >
             <ChevronLeft className="h-4 w-4" /> Anterior
           </Link>
           <Link
-            href={`/admin?mes=${shiftMonthKey(monthKey, 1)}`}
+            href={`/admin?mes=${shiftMonthKey(monthKey, 1)}&dia=${dayKey}`}
             className="inline-flex items-center gap-1 rounded-full border border-surface px-3 py-1.5 text-sm text-ink/70 hover:bg-surface"
           >
             Próximo <ChevronRight className="h-4 w-4" />
           </Link>
         </div>
       </div>
+
+      <ErrorBanner message={params.erro} />
+      <SuccessToast message={params.anamnese === "concluida" ? "Anamnese concluída." : undefined} />
+
+      <DayAttendance monthKey={monthKey} dayKey={dayKey} items={attendance} />
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         <StatCard

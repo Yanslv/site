@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Search } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 import { listCustomers } from "@/server/customers";
 import { formatZonedDate } from "@/lib/timezone";
+import { maskWhatsapp } from "@/lib/masks";
 
 export const metadata: Metadata = { title: "Clientes | Painel Bendita Micro" };
 
@@ -16,7 +17,15 @@ export default async function AdminCustomersPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-2xl font-semibold text-ink">Clientes</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-semibold text-ink">Clientes</h1>
+        <Link
+          href="/admin/agendamentos/novo"
+          className="inline-flex items-center gap-2 rounded-full bg-wine px-4 py-2 text-sm font-medium text-background hover:bg-ink"
+        >
+          <Plus className="h-4 w-4" /> Cadastrar cliente já marcada
+        </Link>
+      </div>
 
       <form method="get" className="flex items-center gap-2">
         <div className="relative flex-1 max-w-sm">
@@ -44,17 +53,28 @@ export default async function AdminCustomersPage({
             </tr>
           </thead>
           <tbody>
-            {customers.map((customer) => (
-              <tr key={customer.id} className="border-b border-surface last:border-0 hover:bg-surface/30">
-                <td className="px-4 py-3">
-                  <Link href={`/admin/clientes/${customer.id}`} className="font-medium text-wine hover:underline">
-                    {customer.name}
-                  </Link>
-                </td>
-                <td className="px-4 py-3 text-ink/70">{customer.whatsapp}</td>
-                <td className="px-4 py-3 text-ink/70">{formatZonedDate(customer.createdAt)}</td>
-              </tr>
-            ))}
+            {customers.map((customer) => {
+              const href = `/admin/clientes/${customer.id}`;
+              return (
+                <tr key={customer.id} className="border-b border-surface last:border-0 hover:bg-surface/30">
+                  <td className="p-0">
+                    <Link href={href} className="block px-4 py-3 font-medium text-ink">
+                      {customer.name}
+                    </Link>
+                  </td>
+                  <td className="p-0">
+                    <Link href={href} tabIndex={-1} className="block px-4 py-3 text-ink/70">
+                      {maskWhatsapp(customer.whatsapp)}
+                    </Link>
+                  </td>
+                  <td className="p-0">
+                    <Link href={href} tabIndex={-1} className="block px-4 py-3 text-ink/70">
+                      {formatZonedDate(customer.createdAt)}
+                    </Link>
+                  </td>
+                </tr>
+              );
+            })}
             {customers.length === 0 && (
               <tr>
                 <td colSpan={3} className="px-4 py-8 text-center text-sm text-ink/50">

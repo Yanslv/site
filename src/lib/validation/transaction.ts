@@ -36,9 +36,9 @@ export type TransactionInput = z.infer<typeof transactionSchema>;
 export const registerPaymentSchema = z.object({
   appointmentId: z.string().min(1),
   amountCents: z.coerce.number().int().positive("Valor deve ser maior que zero"),
-  paymentMethod: z.enum(PAYMENT_METHODS),
-  financialDate: z.string().min(1),
-  note: z.string().trim().max(1000).optional().or(z.literal("")),
+  paymentMethod: z.enum(PAYMENT_METHODS, { error: "Selecione a forma de pagamento" }),
+  financialDate: z.string().min(1, "Informe a data"),
+  note: z.preprocess((value) => (value == null ? "" : value), z.string().trim().max(1000)),
   idempotencyKey: z.string().min(1),
 });
 

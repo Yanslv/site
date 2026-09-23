@@ -12,7 +12,13 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <nav className="flex flex-1 flex-col gap-1" aria-label="Navegação do painel">
       {adminNavItems.map((item) => {
-        const isActive = pathname === item.href;
+        const isAgenda = item.href === "/admin/agenda";
+        const isActive =
+          item.href === "/admin"
+            ? pathname === "/admin"
+            : pathname === item.href ||
+              pathname.startsWith(`${item.href}/`) ||
+              (isAgenda && pathname.startsWith("/admin/agendamentos"));
         const Icon = item.icon;
         return (
           <Link

@@ -504,29 +504,29 @@ async function seedSettings() {
 }
 
 async function main() {
+  const includeDemo = process.argv.includes("--demo");
+
   console.log("Seed: criando/atualizando usuário proprietário...");
   const ownerId = await seedOwner();
-
-  console.log("Seed: serviços demo...");
-  await seedServices();
 
   console.log("Seed: horários de funcionamento...");
   await seedBusinessHours();
 
-  console.log("Seed: bloqueios de agenda...");
-  await seedBlockedPeriods();
-
-  console.log("Seed: clientes demo...");
-  await seedCustomers();
-
-  console.log("Seed: agendamentos e pagamentos demo...");
-  await seedAppointmentsAndPayments(ownerId);
-
-  console.log("Seed: lançamentos financeiros demo (3 meses)...");
-  await seedTransactions(ownerId);
-
   console.log("Seed: configurações padrão...");
   await seedSettings();
+
+  if (includeDemo) {
+    console.log("Seed: serviços demo...");
+    await seedServices();
+    console.log("Seed: bloqueios de agenda...");
+    await seedBlockedPeriods();
+    console.log("Seed: clientes demo...");
+    await seedCustomers();
+    console.log("Seed: agendamentos e pagamentos demo...");
+    await seedAppointmentsAndPayments(ownerId);
+    console.log("Seed: lançamentos financeiros demo (3 meses)...");
+    await seedTransactions(ownerId);
+  }
 
   console.log("Seed concluído com sucesso.");
   client.close();

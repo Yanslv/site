@@ -3,9 +3,15 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Menu, X, CalendarDays } from "lucide-react";
-import { brand, navLinks } from "@/config/site";
+import { navLinks } from "@/config/site";
 
-export default function Header() {
+export default function Header({
+  brandName,
+  professional,
+}: {
+  brandName: string;
+  professional: string;
+}) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   return (
@@ -14,10 +20,10 @@ export default function Header() {
         {/* Marca tipográfica provisória — substituir por <Image> com a logo oficial (PNG/SVG) quando recebida. */}
         <a href="#hero" className="flex flex-col leading-none">
           <span className="font-serif-display text-xl font-semibold text-wine sm:text-2xl">
-            {brand.name}
+            {brandName}
           </span>
           <span className="text-[11px] uppercase tracking-[0.2em] text-ink/60 sm:text-xs">
-            por {brand.professional}
+            por {professional}
           </span>
         </a>
 

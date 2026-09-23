@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Playfair_Display, Work_Sans } from "next/font/google";
-import { seo, brand } from "@/config/site";
+import { getSiteContent } from "@/server/site-content";
 import "./globals.css";
 
 const playfair = Playfair_Display({
@@ -15,26 +15,23 @@ const workSans = Work_Sans({
   display: "swap",
 });
 
-export const metadata: Metadata = {
-  title: seo.title,
-  description: seo.description,
-  ...(seo.canonicalUrl ? { alternates: { canonical: seo.canonicalUrl } } : {}),
-  openGraph: {
-    title: seo.title,
-    description: seo.description,
-    siteName: brand.name,
-    locale: "pt_BR",
-    type: "website",
-    images: [
-      {
-        url: seo.ogImage.src,
-        width: seo.ogImage.width,
-        height: seo.ogImage.height,
-        alt: seo.ogImage.alt,
-      },
-    ],
-  },
-};
+export const dynamic = "force-dynamic";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const site = await getSiteContent();
+  return {
+    title: site.seo.title,
+    description: site.seo.description,
+    openGraph: {
+      title: site.seo.title,
+      description: site.seo.description,
+      siteName: site.brand.name,
+      locale: "pt_BR",
+      type: "website",
+      images: site.hero.imagePath ? [{ url: site.hero.imagePath, alt: site.hero.imageAlt }] : [],
+    },
+  };
+}
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (

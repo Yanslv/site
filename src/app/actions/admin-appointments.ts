@@ -8,6 +8,7 @@ import {
   createManualAppointment,
   updateAppointmentStatus,
   rescheduleAppointment,
+  schedulePendingReturn,
   BookingError,
 } from "@/server/appointments";
 import { parseDateKey, zonedTimeToUtc } from "@/lib/timezone";
@@ -25,10 +26,10 @@ export async function createManualAppointmentAction(formData: FormData): Promise
     time: formData.get("time"),
     customerName: formData.get("customerName"),
     customerWhatsapp: formData.get("customerWhatsapp"),
-    customerEmail: formData.get("customerEmail"),
+    customerEmail: formData.get("customerEmail") ?? "",
     origin: formData.get("origin"),
-    publicNote: formData.get("publicNote"),
-    internalNote: formData.get("internalNote"),
+    publicNote: formData.get("publicNote") ?? "",
+    internalNote: formData.get("internalNote") ?? "",
     status: formData.get("status"),
   });
 
@@ -123,5 +124,41 @@ export async function rescheduleAppointmentAction(formData: FormData): Promise<v
   revalidatePath("/admin/agendamentos");
   revalidatePath("/admin/agenda");
   revalidatePath(`/admin/agendamentos/${parsed.data.appointmentId}`);
-  redirect(`/admin/agendamentos/${parsed.data.appointmentId}`);
+  redirect(`/admin/agendamentos/${parsed.data.appointmentId}?avisar=1`);
+}
+
+export async function schedulePendingReturnAction(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  const parsed = rescheduleSchema.safeParse({
+    appointmentId: formData.get("appointmentId"),
+    dateKey: formData.get("dateKey"),
+    time: formData.get("time"),
+  });
+  const parentId = String(formData.get("appointmentId") ?? "");
+  if (!parsed.success) {
+    errorRedirect(`/admin/agendamentos/${parentId}`, "Dados do retorno inválidos.");
+  }
+
+  const { year, month, day } = parseDateKey(parsed.data.dateKey);
+  const [hour, minute] = parsed.data.time.split(":").map(Number);
+  const startAtIso = zonedTimeToUtc({ year, month, day, hour, minute }).toISOString();
+
+  let createdId = "";
+  try {
+    const created = await schedulePendingReturn({
+      parentId: parsed.data.appointmentId,
+      dateKey: parsed.data.dateKey,
+      startAtIso,
+      userId: user.id,
+    });
+    createdId = created.id;
+  } catch (error) {
+    const message = error instanceof BookingError ? `Conflito: ${error.reason}` : "Não foi possível marcar o retorno.";
+    errorRedirect(`/admin/agendamentos/${parentId}`, message);
+  }
+
+  revalidatePath("/admin/agendamentos");
+  revalidatePath("/admin/agenda");
+  revalidatePath(`/admin/agendamentos/${parentId}`);
+  redirect(`/admin/agendamentos/${createdId}?avisar=1`);
 }

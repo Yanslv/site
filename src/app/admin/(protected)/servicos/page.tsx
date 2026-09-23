@@ -4,6 +4,7 @@ import { Plus, Tag } from "lucide-react";
 import { listAllServices } from "@/server/services";
 import { toggleServiceActiveAction } from "@/app/actions/admin-services";
 import { formatCentsToBRL } from "@/lib/money";
+import { formatReturnInterval } from "@/lib/return-visit";
 import ErrorBanner from "@/components/admin/ErrorBanner";
 
 export const metadata: Metadata = { title: "Serviços | Painel Bendita Micro" };
@@ -37,6 +38,7 @@ export default async function AdminServicesPage({
               <th className="px-4 py-3">Nome</th>
               <th className="px-4 py-3">Duração</th>
               <th className="px-4 py-3">Preço</th>
+              <th className="px-4 py-3">Retorno</th>
               <th className="px-4 py-3">Status</th>
               <th className="px-4 py-3 text-right">Ações</th>
             </tr>
@@ -56,6 +58,11 @@ export default async function AdminServicesPage({
                 </td>
                 <td className="px-4 py-3 text-ink/70">{service.durationMinutes} min</td>
                 <td className="px-4 py-3 text-ink/70">{formatCentsToBRL(service.priceCents)}</td>
+                <td className="px-4 py-3 text-ink/70">
+                  {service.hasReturn && service.returnAmount && service.returnUnit
+                    ? formatReturnInterval(service.returnAmount, service.returnUnit)
+                    : "Não"}
+                </td>
                 <td className="px-4 py-3">
                   <span
                     className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${

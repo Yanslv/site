@@ -51,7 +51,8 @@ export async function getOccupiedRangesBetween(
       and(
         lte(appointments.startAtUtc, end),
         gte(appointments.endAtUtc, start),
-        inArray(appointments.status, OCCUPYING_STATUSES)
+        inArray(appointments.status, OCCUPYING_STATUSES),
+        eq(appointments.isDemo, false)
       )
     );
   return rows.map((r) => ({ start: r.startAtUtc, end: r.endAtUtc }));
