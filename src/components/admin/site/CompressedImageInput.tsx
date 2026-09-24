@@ -69,7 +69,7 @@ export default function CompressedImageInput({
       <input
         ref={pickerRef}
         type="file"
-        accept="image/jpeg,image/png,image/webp"
+        accept="image/*"
         className="sr-only"
         onChange={onPick}
       />
